@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StayFlat — Onboarding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#ECE6D9;--paper-2:#E6DFCF;--ink:#23201A;--ink-soft:#6B6459;
+    --teal:#1C4A44;--teal-deep:#143631;--line:rgba(35,32,26,0.16);--line-soft:rgba(35,32,26,0.09);
+    --serif:"Newsreader",Georgia,serif;--sans:"Hanken Grotesk",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:19px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.04;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+
+  .top{position:fixed;top:0;left:0;right:0;z-index:5;background:rgba(236,230,217,0.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line-soft);}
+  .top-inner{max-width:680px;margin:0 auto;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--serif);font-weight:600;font-size:20px;letter-spacing:-0.02em;}
+  .brand svg{width:24px;height:10px;}
+  .count{font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-soft);}
+  .bar{height:2px;background:var(--line-soft);position:relative;}
+  .bar span{position:absolute;left:0;top:0;height:2px;background:var(--teal);transition:width .4s ease;width:0;}
+
+  main{position:relative;z-index:1;max-width:680px;margin:0 auto;padding:132px 28px 140px;}
+  .eyebrow{font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:var(--teal);margin:0 0 18px;}
+  h1{font-family:var(--serif);font-weight:500;font-size:clamp(30px,5.4vw,44px);line-height:1.08;letter-spacing:-0.015em;margin:0;max-width:20ch;}
+  em{font-style:italic;}
+  .sub{color:var(--ink-soft);font-size:18px;margin:16px 0 0;max-width:52ch;line-height:1.5;}
+  .hint{font-family:var(--sans);font-size:12.5px;color:var(--ink-soft);letter-spacing:0.02em;margin:14px 0 0;}
+
+  .opts{margin:34px 0 0;display:flex;flex-direction:column;gap:12px;}
+  .opt{display:flex;align-items:center;gap:15px;width:100%;text-align:left;padding:17px 20px;border:1px solid var(--line);border-radius:3px;background:var(--paper-2);font-family:var(--serif);font-size:19px;color:var(--ink);cursor:pointer;transition:border-color .15s ease,background .15s ease;}
+  .opt:hover{border-color:var(--teal);}
+  .opt.sel{border-color:var(--teal);background:rgba(28,74,68,0.07);}
+  .box{flex:0 0 20px;height:20px;border:1.5px solid var(--line);border-radius:2px;position:relative;transition:border-color .15s ease;}
+  .opt.sel .box{border-color:var(--teal);background:var(--teal);}
+  .opt.sel .box::after{content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;border:solid var(--paper);border-width:0 2px 2px 0;transform:rotate(45deg);}
+  .box.radio{border-radius:50%;}
+  .opt.sel .box.radio::after{left:5px;top:5px;width:8px;height:8px;border:none;border-radius:50%;background:var(--paper);transform:none;}
+
+  .otherinput{margin:12px 0 0;width:100%;background:var(--paper-2);border:1px solid var(--line);border-radius:3px;color:var(--ink);font-family:var(--serif);font-size:18px;padding:15px 18px;outline:none;transition:border-color .15s ease;}
+  .otherinput::placeholder{color:var(--ink-soft);}
+  .otherinput:focus{border-color:var(--teal);}
+
+  .nav{position:fixed;bottom:0;left:0;right:0;z-index:5;background:rgba(236,230,217,0.92);backdrop-filter:blur(8px);border-top:1px solid var(--line-soft);}
+  .nav-inner{max-width:680px;margin:0 auto;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;}
+  .back{font-family:var(--sans);font-weight:600;font-size:14px;letter-spacing:0.02em;color:var(--ink-soft);background:none;border:none;cursor:pointer;padding:8px 4px;}
+  .back:hover{color:var(--ink);}
+  .back[hidden]{visibility:hidden;}
+  .btn{font-family:var(--sans);font-weight:600;font-size:14px;letter-spacing:0.03em;background:var(--teal);color:var(--paper);border:1px solid var(--teal);padding:14px 32px;border-radius:1px;cursor:pointer;transition:background .2s ease,opacity .2s ease;}
+  .btn:hover{background:var(--teal-deep);}
+  .btn:disabled{opacity:0.35;cursor:not-allowed;}
+  .btn.alt{background:transparent;color:var(--ink);border-color:var(--line);}
+  .btn.alt:hover{background:transparent;border-color:var(--teal);color:var(--teal);}
+  :focus-visible{outline:2px solid var(--teal);outline-offset:3px;}
+
+  /* result */
+  .result .lead{font-size:20px;color:var(--ink-soft);margin:20px 0 0;max-width:54ch;line-height:1.55;}
+  .summary{margin:30px 0 0;border:1px solid var(--line);border-radius:3px;background:var(--paper-2);overflow:hidden;}
+  .srow{display:flex;justify-content:space-between;gap:20px;padding:15px 22px;border-top:1px solid var(--line-soft);font-size:16px;}
+  .srow:first-child{border-top:none;}
+  .srow .k{font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-soft);align-self:center;}
+  .srow .v{text-align:right;color:var(--ink);max-width:60%;}
+  .cta{margin:34px 0 0;}
+  .support{border:1px solid var(--line);border-left:2px solid var(--teal);border-radius:3px;background:var(--paper-2);padding:26px 28px;margin:26px 0 0;}
+  .support p{margin:0 0 14px;color:var(--ink-soft);font-size:17px;line-height:1.55;}
+  .support p:last-child{margin-bottom:0;}
+  .support b{color:var(--ink);}
+  .rowbtns{display:flex;gap:16px;flex-wrap:wrap;margin-top:26px;align-items:center;}
+  .textlink{font-family:var(--sans);font-weight:600;font-size:14px;color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line);padding-bottom:2px;}
+  .textlink:hover{border-color:var(--teal);color:var(--teal);}
+  .edit-note{font-family:var(--sans);font-size:11.5px;color:var(--ink-soft);letter-spacing:0.03em;margin-top:24px;opacity:0.85;}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;}}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <svg viewBox="0 0 52 22" fill="none" aria-hidden="true"><path d="M0 16 L7 16 L11 5 L15 19 L19 9 L23 13 L27 11 L52 11" stroke="#1C4A44" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      StayFlat
+    </div>
+    <div class="count" id="count"></div>
+  </div>
+  <div class="bar"><span id="prog"></span></div>
+</div>
+
+<main id="stage" aria-live="polite"></main>
+
+<div class="nav">
+  <div class="nav-inner">
+    <button class="back" id="back" hidden>← Back</button>
+    <button class="btn" id="next">Continue</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ---- questions ----
+  var steps = [
+    { kind:"intro", eyebrow:"Onboarding",
+      title:"Before we look at a single trade, we want to understand the <em>trader</em>.",
+      sub:"A few honest questions. This shapes everything that comes after.",
+      cta:"Start" },
+
+    { kind:"multi", key:"markets", eyebrow:"01",
+      title:"What do you trade?",
+      hint:"Pick all that apply.",
+      options:["Crypto perps","Crypto spot","Stocks (holdings)","Stock options","Stock futures","Forex"] },
+
+    { kind:"multi", key:"venues", eyebrow:"02",
+      title:"Where do you trade?",
+      hint:"Your main exchange or broker. Pick all that apply.",
+      options:["Hyperliquid","Bybit","Coinbase","Zerodha"],
+      none:"Other", otherInput:true },
+
+    { kind:"single", key:"tenure", eyebrow:"03",
+      title:"How long have you been trading?",
+      options:["Under 6 months","6 to 12 months","1 to 3 years","3+ years"] },
+
+    { kind:"single", key:"stop", eyebrow:"04",
+      title:"Do you set a stop-loss on every trade?",
+      options:["Yes, always","Most trades","Sometimes","No, I don't"] },
+
+    { kind:"single", key:"risk", eyebrow:"05",
+      resolve:function(st){
+        if(st.stop === "No, I don't"){
+          return { title:"Then are you risking your whole account on a single trade?",
+                   sub:"With no stop-loss, nothing caps the loss if the trade runs against you.",
+                   options:["Yes, there's no cap","No, I cut it manually"] };
+        }
+        return { title:"How much do you risk on a single trade?",
+                 sub:"Your stop-loss, as a share of your account. Example: on a $100,000 account, a stop that caps the loss at $2,000 is 2%.",
+                 options:["Under 1%","1 to 2%","2 to 5%","5 to 10%","More than 10%","I don't track it"] };
+      } },
+
+    { kind:"multi", key:"leaks", eyebrow:"06",
+      title:"Where does it tend to fall apart?",
+      hint:"Pick all that apply.",
+      options:["Overtrading","Revenge trading after a loss","Oversizing","Moving or pulling stops","Holding losers too long","Chasing entries (FOMO)","Trading tired or emotional","No plan at all"] },
+
+    { kind:"screen", key:"flags", eyebrow:"07",
+      title:"In the last 12 months, has any of this been true?",
+      hint:"No judgement. Answer straight.",
+      options:[
+        "I've traded with money I couldn't afford to lose.",
+        "I've increased my size to win back losses.",
+        "I've tried to cut back or stop, and couldn't.",
+        "I've hidden my trading or losses from people close to me.",
+        "Trading has cost me sleep, relationships, or work."
+      ],
+      none:"None of these" },
+
+    { kind:"single", key:"goal", eyebrow:"08",
+      title:"What would <em>better</em> actually look like?",
+      options:["Stop blowing up","Smaller, calmer losses","Sticking to my plan","Trading less, not more","Getting my head right"] },
+
+    { kind:"result" }
+  ];
+
+  // NOTE: screening threshold. 3+ flags routes to the support screen instead of booking.
+  // These questions are a soft screen, not a diagnosis. Tune the threshold with a clinician's input.
+  var FLAG_THRESHOLD = 3;
+
+  var state = {};
+  var i = 0;
+
+  var stage = document.getElementById("stage");
+  var back = document.getElementById("back");
+  var next = document.getElementById("next");
+  var count = document.getElementById("count");
+  var prog = document.getElementById("prog");
+
+  function questionIndex(idx){ // human "n of 6" for question steps
+    var q=0; for(var s=0;s<=idx;s++){ if(["single","multi","screen"].indexOf(steps[s].kind)>-1) q++; }
+    return q;
+  }
+  var totalQ = steps.filter(function(s){return ["single","multi","screen"].indexOf(s.kind)>-1;}).length;
+
+  function render(){
+    var s = steps[i];
+    stage.innerHTML = "";
+    back.hidden = (i===0);
+
+    // progress + counter
+    prog.style.width = Math.round((i/(steps.length-1))*100) + "%";
+    if(["single","multi","screen"].indexOf(s.kind)>-1){ count.textContent = "Question " + questionIndex(i) + " of " + totalQ; }
+    else if(s.kind==="result"){ count.textContent = "Done"; }
+    else { count.textContent = ""; }
+
+    if(s.kind==="intro"){ renderIntro(s); return; }
+    if(s.kind==="result"){ renderResult(); return; }
+    renderQuestion(s);
+  }
+
+  function el(tag, cls, html){ var e=document.createElement(tag); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e; }
+
+  function renderIntro(s){
+    stage.appendChild(el("p","eyebrow",s.eyebrow));
+    stage.appendChild(el("h1",null,s.title));
+    stage.appendChild(el("p","sub",s.sub));
+    next.textContent = s.cta || "Continue";
+    next.disabled = false;
+  }
+
+  function renderQuestion(s){
+    if(s.resolve){ s = Object.assign({}, s, s.resolve(state)); }
+    stage.appendChild(el("p","eyebrow",s.eyebrow));
+    stage.appendChild(el("h1",null,s.title));
+    if(s.sub) stage.appendChild(el("p","sub",s.sub));
+    if(s.hint) stage.appendChild(el("p","hint",s.hint));
+    var wrap = el("div","opts");
+    var multi = (s.kind==="multi"||s.kind==="screen");
+    var selected = state[s.key] || (multi?[]:null);
+
+    var allOpts = s.options.slice();
+    if(s.none){ allOpts.push({none:true,label:s.none}); }
+
+    allOpts.forEach(function(o){
+      var label = (o.none)?o.label:o;
+      var b = el("button","opt");
+      b.type="button";
+      var box = el("span","box"+(multi&&!o.none?"":" radio"));
+      b.appendChild(box);
+      b.appendChild(el("span",null,label));
+      var isSel = multi ? (selected.indexOf(label)>-1) : (selected===label);
+      if(isSel) b.classList.add("sel");
+      b.addEventListener("click",function(){ choose(s,label,o.none,multi); });
+      wrap.appendChild(b);
+    });
+    stage.appendChild(wrap);
+
+    if(s.otherInput && multi && (state[s.key]||[]).indexOf(s.none)>-1){
+      var inp=document.createElement("input");
+      inp.type="text"; inp.className="otherinput";
+      inp.placeholder="Which exchange or broker?";
+      inp.value=state[s.key+"Other"]||"";
+      inp.addEventListener("input",function(){ state[s.key+"Other"]=inp.value; });
+      stage.appendChild(inp);
+    }
+
+    next.textContent = "Continue";
+    validate(s);
+  }
+
+  function choose(s,label,isNone,multi){
+    if(!multi){ if(s.key==="stop"){ delete state.risk; } state[s.key]=label; render(); goNextSoon(); return; }
+    var arr = state[s.key] || [];
+    if(isNone){ arr = (arr.indexOf(label)>-1)?[]:[label]; }
+    else {
+      // remove any "none" selection when picking a real flag
+      if(s.none) arr = arr.filter(function(x){return x!==s.none;});
+      var at = arr.indexOf(label);
+      if(at>-1) arr.splice(at,1); else arr.push(label);
+    }
+    state[s.key]=arr;
+    render();
+  }
+
+  // auto-advance on single-select for a snappy feel
+  var autoTimer=null;
+  function goNextSoon(){ clearTimeout(autoTimer); autoTimer=setTimeout(function(){ if(i<steps.length-1){ i++; render(); } },220); }
+
+  function validate(s){
+    var v = state[s.key];
+    var ok = (s.kind==="single") ? !!v : (v && v.length>0);
+    next.disabled = !ok;
+  }
+
+  function flagCount(){
+    var f = state["flags"]||[];
+    var none = steps.find(function(x){return x.key==="flags";}).none;
+    return f.filter(function(x){return x!==none;}).length;
+  }
+
+  function renderResult(){
+    stage.className="";
+    var support = flagCount() >= FLAG_THRESHOLD;
+    var box = el("div","result");
+
+    if(support){
+      box.appendChild(el("p","eyebrow","Let's talk"));
+      box.appendChild(el("h1",null,"Let's get you on a call."));
+      box.appendChild(el("p","lead","Some of what you shared points to more than a mindset gap, and that's exactly worth a real conversation. On the call, Vivan will be straight with you about where coaching helps and where you may need more than coaching."));
+      var sup = el("div","support");
+      sup.appendChild(el("p","On the call, Vivan will be honest about whether you need more than coaching, and help you find the right support if you do. You won't be left to figure it out alone."));
+      box.appendChild(sup);
+    } else {
+      box.appendChild(el("p","eyebrow","You're a fit"));
+      box.appendChild(el("h1",null,"This is exactly who StayFlat is for."));
+      box.appendChild(el("p","lead","Here's what you told us. Vivan walks in already knowing where to push."));
+    }
+
+    var sum = el("div","summary");
+    sum.appendChild(summaryRow("Trades", (state.markets||[]).join(", ") || "—"));
+    var venues = (state.venues||[]).slice();
+    if(venues.indexOf("Other")>-1 && state.venuesOther){ venues = venues.filter(function(x){return x!=="Other";}).concat("Other: "+state.venuesOther); }
+    sum.appendChild(summaryRow("Where", venues.join(", ") || "—"));
+    sum.appendChild(summaryRow("Experience", state.tenure || "—"));
+    sum.appendChild(summaryRow("Stop-loss", state.stop || "—"));
+    sum.appendChild(summaryRow("Risk / trade", state.risk || "—"));
+    sum.appendChild(summaryRow("Biggest leaks", (state.leaks||[]).join(", ") || "—"));
+    sum.appendChild(summaryRow("Wants", state.goal || "—"));
+    box.appendChild(sum);
+
+    var cta = el("div","cta rowbtns");
+    var a = el("a","btn","Book your call with Vivan"); a.href="#book";
+    cta.appendChild(a);
+    var rep = el("a","btn alt","Get a free report about your trading style"); rep.href="/report"; rep.target="_top";
+    cta.appendChild(rep);
+    box.appendChild(cta);
+    box.appendChild(el("p","edit-note","// Wire booking + payment. Save answers to the trader's profile. Flag high-risk intakes to Vivan before the call."));
+
+    stage.appendChild(box);
+    next.textContent = "Done";
+    next.disabled = true;
+    next.style.visibility="hidden";
+  }
+
+  function summaryRow(k,v){
+    var r=el("div","srow");
+    r.appendChild(el("span","k",k));
+    r.appendChild(el("span","v",v));
+    return r;
+  }
+
+  next.addEventListener("click",function(){
+    var s=steps[i];
+    if(s.kind!=="result" && i<steps.length-1){
+      if(["single","multi","screen"].indexOf(s.kind)>-1){ validate(s); if(next.disabled) return; }
+      i++; next.style.visibility="visible"; render();
+    }
+  });
+  back.addEventListener("click",function(){ if(i>0){ i--; next.style.visibility="visible"; render(); } });
+
+  render();
+})();
+</script>
+</body>
+</html>

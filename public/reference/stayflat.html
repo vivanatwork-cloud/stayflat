@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StayFlat — Master the trader, not the trade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#ECE6D9;--paper-2:#E6DFCF;--ink:#23201A;--ink-soft:#6B6459;
+    --teal:#1C4A44;--teal-deep:#143631;--line:rgba(35,32,26,0.16);--line-soft:rgba(35,32,26,0.09);
+    --serif:"Newsreader",Georgia,serif;--sans:"Hanken Grotesk",system-ui,sans-serif;--maxw:1120px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:19px;line-height:1.62;-webkit-font-smoothing:antialiased;overflow-x:hidden;position:relative;}
+  body::before{content:"";position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0.04;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 32px;position:relative;z-index:2;}
+  a{color:inherit;}
+  h1,h2,h3{font-family:var(--serif);font-weight:500;letter-spacing:-0.012em;line-height:1.04;margin:0;}
+  em{font-style:italic;}
+  .eyebrow{font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:var(--teal);margin:0 0 22px;}
+  .btn{font-family:var(--sans);font-weight:600;font-size:14px;letter-spacing:0.03em;background:var(--teal);color:var(--paper);border:1px solid var(--teal);padding:15px 30px;border-radius:1px;cursor:pointer;text-decoration:none;display:inline-block;transition:background .2s ease;}
+  .btn:hover{background:var(--teal-deep);border-color:var(--teal-deep);}
+  .textlink{font-family:var(--sans);font-weight:600;font-size:14px;letter-spacing:0.02em;color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line);padding-bottom:2px;transition:border-color .2s ease;}
+  .textlink:hover{border-color:var(--teal);color:var(--teal);}
+  :focus-visible{outline:2px solid var(--teal);outline-offset:3px;}
+  .rule{height:1px;background:var(--line-soft);position:relative;}
+  .rule::after{content:"";position:absolute;left:0;top:0;width:48px;height:1px;background:var(--teal);opacity:0.8;}
+  header.bar{position:sticky;top:0;z-index:40;background:rgba(236,230,217,0.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--line-soft);}
+  .bar-inner{max-width:var(--maxw);margin:0 auto;padding:18px 32px;display:flex;align-items:center;justify-content:space-between;}
+  .brand{display:flex;align-items:center;gap:11px;font-family:var(--serif);font-weight:600;font-size:22px;letter-spacing:-0.02em;}
+  .brand svg{width:26px;height:11px;}
+  .nav-right{display:flex;align-items:center;gap:26px;}
+  .nav-right .navlink{font-family:var(--sans);font-size:14px;font-weight:500;color:var(--ink-soft);text-decoration:none;letter-spacing:0.02em;}
+  .nav-right .navlink:hover{color:var(--ink);}
+  .bar .btn{padding:11px 22px;font-size:13px;}
+  @media(max-width:720px){.nav-right .navlink{display:none;}}
+  .hero{padding:120px 0 92px;}
+  .hero h1{font-size:clamp(50px,8.4vw,104px);max-width:14ch;letter-spacing:-0.02em;}
+  .hero .stand{font-size:clamp(19px,2.3vw,23px);color:var(--ink-soft);max-width:44ch;margin:34px 0 0;line-height:1.5;}
+  .hero .actions{display:flex;align-items:center;gap:26px;margin-top:44px;flex-wrap:wrap;}
+  .flatline-wrap{margin-top:84px;}
+  .flatline-wrap svg{width:100%;height:64px;display:block;overflow:visible;}
+  section{padding:96px 0;}
+  .measure h2{font-size:clamp(32px,5vw,54px);max-width:18ch;}
+  .prose{color:var(--ink);max-width:56ch;font-size:20px;margin:24px 0 0;line-height:1.6;}
+  .prose.dim{color:var(--ink-soft);}
+  .truth h2{margin-bottom:30px;}
+  .punch{font-size:clamp(22px,3vw,27px);color:var(--ink);max-width:40ch;line-height:1.4;margin:0;}
+  .cue{font-family:var(--sans);font-size:15px;font-weight:600;letter-spacing:0.02em;color:var(--ink);margin:40px 0 4px;}
+  .leaks{list-style:none;margin:14px 0 0;padding:0;max-width:44ch;}
+  .leaks li{font-family:var(--serif);font-size:clamp(20px,2.4vw,24px);color:var(--ink);padding:15px 0 15px 36px;border-top:1px solid var(--line-soft);position:relative;line-height:1.35;}
+  .leaks li:first-child{border-top:none;}
+  .leaks li::before{content:"";position:absolute;left:0;top:calc(50% - 1px);width:20px;height:2px;background:var(--teal);}
+  .close{font-size:20px;color:var(--ink-soft);max-width:52ch;margin:40px 0 0;line-height:1.55;}
+  .close b{color:var(--ink);font-weight:600;}
+  .steps{position:relative;margin-top:56px;}
+  .steps::before{content:"";position:absolute;left:24px;top:36px;bottom:36px;width:1.5px;background:var(--line);}
+  .step{position:relative;display:grid;grid-template-columns:56px 1fr;gap:32px;padding:26px 0;align-items:start;}
+  .step .num{width:48px;text-align:center;font-family:var(--serif);font-size:34px;font-weight:500;color:var(--teal);line-height:1;background:var(--paper);padding:6px 0;position:relative;z-index:1;}
+  .step h3{font-size:24px;font-weight:600;margin:6px 0 8px;letter-spacing:-0.01em;}
+  .step p{margin:0;color:var(--ink-soft);font-size:18px;max-width:52ch;line-height:1.55;}
+  @media(max-width:640px){.steps::before{left:16px;}.step{grid-template-columns:40px 1fr;gap:20px;}.step .num{width:32px;font-size:26px;}}
+  .spot{text-align:center;}
+  .spot h2{font-size:clamp(30px,4.6vw,50px);max-width:16ch;margin:0 auto;}
+  .spot .sub{font-family:var(--sans);font-size:14px;letter-spacing:0.03em;color:var(--ink-soft);margin:18px auto 0;max-width:44ch;line-height:1.5;}
+  .sheet{max-width:640px;margin:52px auto 0;background:var(--paper-2);border:1px solid var(--line);border-radius:3px;overflow:hidden;text-align:left;box-shadow:0 18px 40px -28px rgba(35,32,26,0.4);}
+  .sheet-head{display:flex;justify-content:space-between;align-items:baseline;padding:20px 30px;border-bottom:1px solid var(--line);}
+  .sheet-head .t{font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:var(--ink);}
+  .sheet-head .w{font-family:var(--sans);font-size:12px;color:var(--ink-soft);letter-spacing:0.05em;}
+  .finding{display:grid;grid-template-columns:118px 1fr;gap:24px;align-items:center;padding:26px 30px;border-top:1px solid var(--line-soft);}
+  .finding .fig{font-family:var(--serif);font-size:40px;font-weight:500;color:var(--teal);line-height:1;letter-spacing:-0.01em;}
+  .finding .dl{font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:0.13em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:5px;}
+  .finding .dt{font-size:18px;color:var(--ink);line-height:1.4;}
+  .sheet-foot{padding:16px 30px;border-top:1px solid var(--line);font-family:var(--sans);font-size:11.5px;letter-spacing:0.05em;color:var(--ink-soft);background:rgba(20,54,49,0.05);}
+  @media(max-width:520px){.finding{grid-template-columns:1fr;gap:8px;}.finding .fig{font-size:34px;}}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:56px;margin-top:52px;}
+  .split h3{font-family:var(--sans);font-size:13px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:18px;}
+  .split .for h3{color:var(--teal);}
+  .split .not h3{color:var(--ink-soft);}
+  .split ul{list-style:none;margin:0;padding:0;}
+  .split li{padding:15px 0;border-top:1px solid var(--line-soft);font-size:18.5px;color:var(--ink);line-height:1.45;}
+  .split .not li{color:var(--ink-soft);}
+  @media(max-width:720px){.split{grid-template-columns:1fr;gap:36px;}}
+  .tripwire{margin-top:48px;border:1px solid var(--line);border-left:2px solid var(--teal);border-radius:2px;padding:30px 34px;background:var(--paper-2);}
+  .tripwire h4{font-family:var(--serif);font-weight:600;font-size:23px;margin:0 0 12px;letter-spacing:-0.01em;}
+  .tripwire p{margin:0;color:var(--ink-soft);font-size:17.5px;line-height:1.55;}
+  .tripwire a{color:var(--teal);text-decoration:underline;text-underline-offset:3px;}
+  .tripwire b{color:var(--ink);font-weight:600;}
+  .vivan{display:grid;grid-template-columns:0.8fr 1.2fr;gap:60px;align-items:center;}
+  .portrait{aspect-ratio:4/5;background:var(--paper-2);border:1px solid var(--line);border-radius:2px;position:relative;overflow:hidden;display:flex;align-items:flex-end;padding:20px;}
+  .portrait .ph{font-family:var(--sans);font-size:12px;letter-spacing:0.08em;color:var(--ink-soft);text-transform:uppercase;}
+  .portrait::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0 30px,rgba(35,32,26,0.03) 30px 31px);}
+  .edit-note{font-family:var(--sans);font-size:11.5px;color:var(--ink-soft);letter-spacing:0.03em;margin-top:16px;opacity:0.85;}
+  @media(max-width:820px){.vivan{grid-template-columns:1fr;gap:32px;}.portrait{max-width:300px;}}
+  .book{text-align:center;padding:112px 0;}
+  .book h2{font-size:clamp(40px,6.6vw,76px);max-width:15ch;margin:0 auto;letter-spacing:-0.02em;}
+  .book .prose{margin:30px auto 0;text-align:left;max-width:50ch;color:var(--ink-soft);}
+  .book .price{font-family:var(--sans);font-size:14px;letter-spacing:0.05em;color:var(--ink-soft);margin:40px 0 24px;}
+  .book .price b{color:var(--ink);font-weight:600;}
+  .book .actions{display:flex;gap:22px;justify-content:center;align-items:center;flex-wrap:wrap;}
+  footer{border-top:1px solid var(--line);padding:44px 0 60px;}
+  .foot-inner{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;}
+  .foot-line{font-family:var(--serif);font-style:italic;font-size:21px;color:var(--ink);}
+  .foot-meta{font-family:var(--sans);font-size:12px;letter-spacing:0.06em;color:var(--ink-soft);text-transform:uppercase;}
+  .reveal{opacity:0;transform:translateY(16px);transition:opacity .8s ease,transform .8s ease;}
+  .reveal.in{opacity:1;transform:none;}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto;}.reveal{opacity:1;transform:none;transition:none;}*{animation:none!important;}}
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="bar-inner">
+    <div class="brand">
+      <svg viewBox="0 0 52 22" fill="none" aria-hidden="true"><path d="M0 16 L7 16 L11 5 L15 19 L19 9 L23 13 L27 11 L52 11" stroke="#1C4A44" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      StayFlat
+    </div>
+    <nav class="nav-right">
+      <a class="navlink" href="/sign-in" target="_top">Sign in</a>
+      <a class="navlink" href="#how">How it works</a>
+      <a class="navlink" href="#who">Who it's for</a>
+      <a class="btn" href="#signup">Create account</a>
+    </nav>
+  </div>
+</header>
+<div class="wrap">
+  <section class="hero">
+    <h1>Master the trader, not the <em>trade.</em></h1>
+    <p class="stand">No signals. No setups. We fix the trader. For people who lose to themselves, not the market.</p>
+    <div class="actions">
+      <a class="btn" href="#signup">Create your account</a>
+      <a class="textlink" href="#how">See how it works →</a>
+    </div>
+    <div class="flatline-wrap" aria-hidden="true">
+      <svg id="flatline" viewBox="0 0 1000 64" preserveAspectRatio="none">
+        <path id="fline" fill="none" stroke="var(--teal)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" d="M0 40 L34 22 L58 52 L86 12 L112 56 L142 16 L176 54 L210 26 L248 44 L292 20 L332 46 L372 30 L410 40 L452 34 L500 32 L580 32 L680 32 L800 32 L1000 32"/>
+      </svg>
+    </div>
+  </section>
+
+  <div class="rule"></div>
+
+  <section class="measure truth reveal">
+    <p class="eyebrow">The uncomfortable part</p>
+    <h2>Your strategy isn't the problem. <em>You</em> are.</h2>
+    <p class="punch">Every losing trader thinks the fix is one more indicator. It almost never is.</p>
+    <p class="cue">👉 The account doesn't die from a bad strategy. It dies from you.</p>
+    <ul class="leaks">
+      <li>Sizing up after a loss.</li>
+      <li>Dragging the stop.</li>
+      <li>Revenge-trading a red candle.</li>
+      <li>Giving back a green week in one tilted hour.</li>
+    </ul>
+    <p class="close">StayFlat finds the self-sabotage quietly bleeding your account, and helps you cut it out. <b>Losing less is the only edge we sell.</b> For most traders, it's the one that was missing.</p>
+  </section>
+
+  <div class="rule"></div>
+
+  <section class="measure reveal" id="how">
+    <h2>First we get to know you. <em>Then</em> we go to work.</h2>
+    <p class="prose dim">No dashboard to drown in. We start with an account and a real conversation about how you trade, wherever you trade.</p>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><div><h3>Create your account</h3><p>Sign up with an email. We don't ask anything about your trading until you're inside.</p></div></div>
+      <div class="step"><div class="num">2</div><div><h3>Tell us about your trading</h3><p>A short, honest onboarding: how you trade, how long you've been at it, your typical size, and where it tends to fall apart. This is how we understand the trader before we look at a single trade.</p></div></div>
+      <div class="step"><div class="num">3</div><div><h3>Show us how you trade</h3><p>We look at how you've actually traded and find the patterns doing the damage. However and wherever you trade, we build the picture together.</p></div></div>
+      <div class="step"><div class="num">4</div><div><h3>See your pattern</h3><p>We surface the behavior costing you the most. The one you can't see from inside it, because you're the one doing it.</p></div></div>
+      <div class="step"><div class="num">5</div><div><h3>Book the call</h3><p>Sit down one-to-one with Vivan and walk out with a concrete rule built to kill that pattern.</p></div></div>
+    </div>
+  </section>
+
+  <div class="rule"></div>
+
+  <section class="spot reveal">
+    <h2>This is what your read looks like.</h2>
+    <p class="sub">Whatever account you trade on, this is what StayFlat hands back.</p>
+    <div class="sheet">
+      <div class="sheet-head"><span class="t">Sample read</span><span class="w">your last 90 days</span></div>
+      <div class="finding"><div class="fig">2.8×</div><div><div class="dl">Revenge sizing</div><div class="dt">Bigger position within 30 minutes of a loss.</div></div></div>
+      <div class="finding"><div class="fig">4 min</div><div><div class="dl">No cool-down</div><div class="dt">Average time from a losing trade to the next one.</div></div></div>
+      <div class="finding"><div class="fig">1–4am</div><div><div class="dl">Danger hours</div><div class="dt">Where your deepest drawdowns cluster.</div></div></div>
+      <div class="sheet-foot">Illustrative. Your real read is built from your own trading history.</div>
+    </div>
+  </section>
+
+  <div class="rule"></div>
+
+  <section class="measure reveal" id="who">
+    <p class="eyebrow">Read this before you sign up</p>
+    <h2>Who this is for.</h2>
+    <div class="split">
+      <div class="for"><h3>This is for you if</h3><ul>
+        <li>You've blown up accounts you knew better than to blow up.</li>
+        <li>You've felt the 2am revenge trade take over your hands.</li>
+        <li>You suspect the problem is you, and you're ready to look.</li>
+        <li>You want to keep trading, but stop torching everything you build.</li>
+      </ul></div>
+      <div class="not"><h3>This isn't for you if</h3><ul>
+        <li>You think one more indicator will fix it.</li>
+        <li>You're looking for signals, calls, or a system.</li>
+        <li>You want someone to tell you you're right.</li>
+        <li>You're not ready to read your own record honestly.</li>
+      </ul></div>
+    </div>
+    <div class="tripwire">
+      <h4>If you can't stop, this isn't the help you need.</h4>
+      <p>Coaching is for traders who want more control. If trading has stopped feeling like a choice, if you're chasing losses you can't afford, hiding it, or watching it pull your life apart, that's not a mindset gap. It's something bigger, and it deserves real support. Reaching out isn't giving up. If that's you, we'll help you find the right kind of help before we ever take your money.</p>
+    </div>
+  </section>
+
+  <div class="rule"></div>
+
+  <section class="reveal">
+    <div class="vivan">
+      <div class="portrait"><span class="ph">Photo of Vivan</span></div>
+      <div>
+        <p class="eyebrow">The human on the other side</p>
+        <h2 style="font-size:clamp(30px,4.4vw,46px);">Meet Vivan.</h2>
+        <p class="prose dim">The call is one-to-one, screen-share on. You'll walk through your actual history together, name the single costliest pattern in your trading, and leave with one rule designed to kill it. No script, no upsell maze. Just one honest conversation with someone who's watched a lot of traders self-destruct, and helped them stop.</p>
+        <p class="edit-note">// Replace with Vivan's real bio, credentials, and photo before launch.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="rule"></div>
+
+  <section class="book reveal" id="signup">
+    <p class="eyebrow" style="text-align:center;">Start here</p>
+    <h2>Find the pattern. Get the rule that kills it.</h2>
+    <p class="prose">Create your account, tell us how you trade, and see the behavior costing you the most. Then book a one-to-one with Vivan and leave with a concrete rule to stop it. The kind of thing that's obvious from the outside and invisible from where you're sitting.</p>
+    <p class="price">Coaching call · <b>[ set your price ]</b> · 45 minutes · screen-share</p>
+    <div class="actions">
+      <a class="btn" href="/sign-up" target="_top" id="signupBtn">Create your account</a>
+      <a class="textlink" href="#how">How it works →</a>
+    </div>
+    <p class="edit-note" style="text-align:center;margin-top:22px;">// Wire this to your signup/auth flow. Booking and payment happen after onboarding.</p>
+  </section>
+</div>
+<footer>
+  <div class="wrap foot-inner">
+    <div class="foot-line">Master the trader, not the trade.</div>
+    <div class="foot-meta">StayFlat · Trading psychology</div>
+  </div>
+</footer>
+<script>
+(function(){
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var line = document.getElementById("fline");
+  if(line && !reduce){
+    var len = line.getTotalLength();
+    line.style.strokeDasharray = len; line.style.strokeDashoffset = len;
+    var start=null, dur=1900;
+    function step(ts){ if(!start) start=ts; var t=Math.min((ts-start)/dur,1); var e=1-Math.pow(1-t,3); line.style.strokeDashoffset = len*(1-e); if(t<1) requestAnimationFrame(step); }
+    requestAnimationFrame(step);
+  }
+  if(!reduce && "IntersectionObserver" in window){
+    var io=new IntersectionObserver(function(en){ en.forEach(function(x){ if(x.isIntersecting){x.target.classList.add("in");io.unobserve(x.target);} }); },{threshold:0.12});
+    document.querySelectorAll(".reveal").forEach(function(el){io.observe(el);});
+  } else { document.querySelectorAll(".reveal").forEach(function(el){el.classList.add("in");}); }
+})();
+</script>
+</body>
+</html>
