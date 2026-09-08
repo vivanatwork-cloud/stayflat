@@ -76,6 +76,9 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
   const [selectedAddresses, setSelectedAddresses] = useState(() => initialHistory.map((item) => item.address));
   const [portfolioTokens, setPortfolioTokens] = useState<Record<string, string>>({});
   const [lighterWallets, setLighterWallets] = useState<string[]>([]);
+  const [availablePortfolio, setAvailablePortfolio] = useState(savedPortfolio);
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const newAddressBlocked = Boolean(access.blocked);
 
   useEffect(() => {
@@ -200,6 +203,36 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
     }
   }
 
+  async function deleteSavedReport(target: { address?: string; portfolio?: true }) {
+    setDeleting(true);
+    setError("");
+    try {
+      const response = await fetch("/api/report/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(target),
+      });
+      const data = await response.json().catch(() => null) as { walletDeleted?: boolean; portfolioDeleted?: boolean; error?: string } | null;
+      if (!response.ok) throw new Error(data?.error || "We couldn't delete this report.");
+      if (target.address && data?.walletDeleted) {
+        const normalized = target.address.toLowerCase();
+        setHistory((current) => current.filter((item) => item.address !== normalized));
+        setSelectedAddresses((current) => current.filter((address) => address !== normalized));
+        setAccess((current) => ({ ...current, used: Math.max(0, current.used - 1) }));
+      }
+      if (data?.portfolioDeleted) setAvailablePortfolio(null);
+      const openTargetDeleted = target.portfolio
+        ? Boolean(report?.addresses && report.addresses.length > 1)
+        : Boolean(target.address && (report?.address === target.address || report?.walletReports?.some((item) => item.address === target.address)));
+      setPendingDelete(null);
+      if (openTargetDeleted) reset();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "We couldn't delete this report.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   function reset() {
     requestRef.current?.abort();
     setReport(null);
@@ -226,6 +259,8 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
       error={error}
       readyKey={reportReadyKey}
       blocked={Boolean(access.blocked)}
+      onDelete={deleteSavedReport}
+      deleting={deleting}
     />
   </>;
 
@@ -345,7 +380,7 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
               {lighterWallets.map((wallet) => <label className="report-portfolio-token" key={wallet}><span>Lighter key for {wallet.slice(0, 8)}…{wallet.slice(-6)}</span><input type="password" value={portfolioTokens[wallet] ?? ""} onChange={(event) => setPortfolioTokens((current) => ({ ...current, [wallet]: event.target.value }))} placeholder="ro:…" autoComplete="off" /></label>)}
               <div className="report-portfolio-actions">
                 <button type="button" onClick={generatePortfolio} disabled={selectedAddresses.length < 2 || selectedAddresses.length > 10 || status === "loading" || access.blocked}>{status === "loading" ? "Building portfolio…" : `Build portfolio · ${selectedAddresses.length} wallets`}</button>
-                {savedPortfolio ? <button type="button" className="report-link-button" onClick={() => { setReport({ address: savedPortfolio.addresses[0], addresses: savedPortfolio.addresses, report: savedPortfolio.report, access }); router.replace("/report?portfolio=1"); }}>View saved portfolio</button> : null}
+                {availablePortfolio ? <button type="button" className="report-link-button" onClick={() => { setReport({ address: availablePortfolio.addresses[0], addresses: availablePortfolio.addresses, report: availablePortfolio.report, access }); router.replace("/report?portfolio=1"); }}>View saved portfolio</button> : null}
               </div>
             </div>
           ) : null}
@@ -355,13 +390,14 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
           </div>
           <div className="report-history-inline-list">
             {history.map((item) => (
-              <Link href={`/report?address=${encodeURIComponent(item.address)}`} key={item.address}>
-                <span>{item.address.slice(0, 8)}…{item.address.slice(-6)}</span>
-                <small>
-                  {historySummary(item)}
-                </small>
-                <strong>View report <span aria-hidden="true">→</span></strong>
-              </Link>
+              <div className="report-history-row" key={item.address}>
+                <Link href={`/report?address=${encodeURIComponent(item.address)}`}>
+                  <span>{item.address.slice(0, 8)}…{item.address.slice(-6)}</span>
+                  <small>{historySummary(item)}</small>
+                  <strong>View report <span aria-hidden="true">→</span></strong>
+                </Link>
+                {pendingDelete === item.address ? <div className="report-delete-confirm"><span>Delete this saved report?</span><button type="button" onClick={() => deleteSavedReport({ address: item.address })} disabled={deleting}>{deleting ? "Deleting…" : "Delete permanently"}</button><button type="button" onClick={() => setPendingDelete(null)} disabled={deleting}>Cancel</button></div> : <button className="report-history-delete" type="button" onClick={() => setPendingDelete(item.address)}>Delete</button>}
+              </div>
             ))}
           </div>
         </section>
@@ -398,6 +434,8 @@ function ReportResult({
   error,
   readyKey,
   blocked,
+  onDelete,
+  deleting,
 }: {
   report: ReportResponse;
   onReset: () => void;
@@ -407,6 +445,8 @@ function ReportResult({
   error: string;
   readyKey: number;
   blocked: boolean;
+  onDelete: (target: { address?: string; portfolio?: true }) => Promise<void>;
+  deleting: boolean;
 }) {
   const hasWalletSwitcher = Boolean(report.walletReports && report.walletReports.length > 1);
   const [selectedWallet, setSelectedWallet] = useState<"all" | string>(report.addresses && report.addresses.length > 1 ? "all" : report.address);
@@ -417,6 +457,7 @@ function ReportResult({
   const isPortfolio = selectedWallet === "all" && Boolean(report.addresses && report.addresses.length > 1);
   const initialVenue: "combined" | VenueName = hasCombined ? "combined" : (currentReport.activeVenues[0] ?? "combined");
   const [selectedVenue, setSelectedVenue] = useState<"combined" | VenueName>(initialVenue);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const visibleVenue = selectedVenue === "combined" && !hasCombined ? initialVenue : selectedVenue;
   const venueSnapshot = visibleVenue === "combined" ? null : currentReport[visibleVenue];
   const metrics = visibleVenue === "combined" ? currentReport.combined : (venueSnapshot?.metrics ?? currentReport.combined);
@@ -440,6 +481,9 @@ function ReportResult({
         <button className="report-link-button" onClick={onReset}>
           Try another address
         </button>
+        <div className="report-result-delete">
+          {confirmDelete ? <div className="report-delete-confirm"><span>{isPortfolio ? "Delete this combined portfolio? Individual reports will stay saved." : "Delete this saved wallet report?"}</span><button type="button" onClick={() => onDelete(isPortfolio ? { portfolio: true } : { address: currentAddress })} disabled={deleting}>{deleting ? "Deleting…" : "Delete permanently"}</button><button type="button" onClick={() => setConfirmDelete(false)} disabled={deleting}>Cancel</button></div> : <button type="button" onClick={() => setConfirmDelete(true)}>Delete this report</button>}
+        </div>
       </section>
     );
   const findings: { figure: string; label: string; copy: string }[] = [];
@@ -667,6 +711,9 @@ function ReportResult({
         <button className="report-link-button" onClick={onReset}>
           Check another address
         </button>
+      </div>
+      <div className="report-result-delete">
+        {confirmDelete ? <div className="report-delete-confirm"><span>{isPortfolio ? "Delete this combined portfolio? Individual reports will stay saved." : "Delete this saved wallet report?"}</span><button type="button" onClick={() => onDelete(isPortfolio ? { portfolio: true } : { address: currentAddress })} disabled={deleting}>{deleting ? "Deleting…" : "Delete permanently"}</button><button type="button" onClick={() => setConfirmDelete(false)} disabled={deleting}>Cancel</button></div> : <button type="button" onClick={() => setConfirmDelete(true)}>Delete this report</button>}
       </div>
       {refreshing ? <ReportLoading onCancel={onCancel} /> : null}
       {error ? <p className="report-error" role="alert">{error}</p> : null}

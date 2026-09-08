@@ -280,6 +280,43 @@ export const recordReportBatch = mutation({
   },
 });
 
+export const deleteSavedReport = mutation({
+  args: {
+    writeSecret: v.string(),
+    ownerId: v.string(),
+    address: v.optional(v.string()),
+    portfolio: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const expectedSecret = process.env.PAYMENT_WRITE_SECRET;
+    if (!expectedSecret || args.writeSecret !== expectedSecret) throw new Error("Unauthorized report deletion");
+    if (Boolean(args.address) === Boolean(args.portfolio)) throw new Error("DELETE_TARGET_INVALID");
+
+    let walletDeleted = false;
+    let portfolioDeleted = false;
+    if (args.address) {
+      const address = args.address.trim().toLowerCase();
+      const wallet = await ctx.db.query("reportWallets").withIndex("by_owner_address", (q) => q.eq("ownerId", args.ownerId).eq("address", address)).unique();
+      if (wallet) {
+        await ctx.db.delete(wallet._id);
+        walletDeleted = true;
+      }
+      const savedPortfolio = await ctx.db.query("portfolioReports").withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId)).first();
+      if (savedPortfolio?.addresses.includes(address)) {
+        await ctx.db.delete(savedPortfolio._id);
+        portfolioDeleted = true;
+      }
+    } else {
+      const savedPortfolio = await ctx.db.query("portfolioReports").withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId)).first();
+      if (savedPortfolio) {
+        await ctx.db.delete(savedPortfolio._id);
+        portfolioDeleted = true;
+      }
+    }
+    return { walletDeleted, portfolioDeleted };
+  },
+});
+
 export const recordReportWallet = mutation({
   args: {
     writeSecret: v.string(),
