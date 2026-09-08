@@ -8,7 +8,7 @@ import { AccountMenu } from "@/components/brand/account-menu";
 import { FlatlineMark } from "@/components/brand/flatline-mark";
 import { isAdminEmail } from "@/lib/admin";
 import { getConvexToken } from "@/lib/convex-auth";
-import { grantPaidAccess } from "./actions";
+import { blockUser, grantPaidAccess, unblockUser } from "./actions";
 import { CustomerControls } from "@/components/admin/customer-controls";
 import { loadAllClerkUsers } from "@/lib/admin/clerk-users";
 import { filterAdminCustomers, filtersToSearchParams, getAttentionReason, paginateAdminCustomers, parseAdminFilters, sortAdminCustomers, type AdminSearchParams } from "@/lib/admin/customer-filters";
@@ -60,6 +60,7 @@ export default async function AdminPage({
   const onboardingByOwner = new Map(overview.onboarding.map((record) => [record.ownerId, record]));
   const journalsByOwner = new Map(overview.journals.map((record) => [record.ownerId, record]));
   const downloadsByReport = new Map<string, typeof overview.downloads>();
+  const blocksByOwner = new Map<string, typeof overview.accessBlocks>();
   for (const payment of overview.payments) {
     paymentsByOwner.set(payment.ownerId, [...(paymentsByOwner.get(payment.ownerId) ?? []), payment]);
   }
@@ -69,6 +70,9 @@ export default async function AdminPage({
   for (const download of overview.downloads) {
     const key = `${download.ownerId}:${download.address}`;
     downloadsByReport.set(key, [...(downloadsByReport.get(key) ?? []), download]);
+  }
+  for (const block of overview.accessBlocks) {
+    blocksByOwner.set(block.ownerId, [...(blocksByOwner.get(block.ownerId) ?? []), block]);
   }
 
   const allUsers = clerkUsers.users
@@ -85,6 +89,7 @@ export default async function AdminPage({
         wallets: walletsByOwner.get(clerkUser.id) ?? [],
         onboarding: onboardingByOwner.get(clerkUser.id),
         journal: journalsByOwner.get(clerkUser.id),
+        blocks: blocksByOwner.get(clerkUser.id) ?? [],
       };
     });
   const filteredUsers = sortAdminCustomers(filterAdminCustomers(allUsers, filters), filters.sort);
@@ -137,7 +142,9 @@ export default async function AdminPage({
             <details className="admin-user" key={record.id}>
               <summary>
                 <span><strong>{record.email}</strong><small>{shortId(record.id)}</small></span>
-                <span className={record.payments.length ? "admin-status admin-status-paid" : "admin-status"}>{record.payments.length ? "Paid" : "Unpaid"}</span>
+                {record.blocks.some((block) => block.unblockedAt == null)
+                  ? <span className="admin-status admin-status-blocked">Blocked · {record.payments.length ? "Paid" : "Unpaid"}</span>
+                  : <span className="admin-status admin-status-paid">Active · {record.payments.length ? "Paid" : "Unpaid"}</span>}
                 <span><small>Joined</small>{date(record.createdAt)}</span>
                 <span><small>Reports</small>{record.wallets.length}</span>
                 <span><small>Journal trades</small>{record.journal?.tradeCount ?? 0}</span>
@@ -145,7 +152,11 @@ export default async function AdminPage({
               <div className="admin-user-detail">
                 <article>
                   <h3>Account</h3>
-                  <dl><div><dt>Last sign-in</dt><dd>{date(record.lastSignInAt)}</dd></div><div><dt>Payment slots</dt><dd>{record.payments.length * 3}</dd></div><div><dt>Onboarding</dt><dd>{record.onboarding?.completed ? "Complete" : record.onboarding ? `Step ${record.onboarding.step} of 9` : "Not started"}</dd></div></dl>
+                  <dl><div><dt>Last sign-in</dt><dd>{date(record.lastSignInAt)}</dd></div><div><dt>Report access</dt><dd>{record.blocks.some((block) => block.unblockedAt == null) ? "Blocked" : "Free · unlimited"}</dd></div><div><dt>Onboarding</dt><dd>{record.onboarding?.completed ? "Complete" : record.onboarding ? `Step ${record.onboarding.step} of 9` : "Not started"}</dd></div></dl>
+                  {(() => {
+                    const activeBlock = record.blocks.find((block) => block.unblockedAt == null);
+                    return activeBlock ? <form action={unblockUser} className="admin-access-form"><input type="hidden" name="ownerId" value={record.id} /><p><strong>Blocked {date(activeBlock.blockedAt)}</strong><br />{activeBlock.reason}</p><button type="submit">Unblock report access</button></form> : <form action={blockUser} className="admin-access-form admin-access-form-danger"><input type="hidden" name="ownerId" value={record.id} /><label htmlFor={`block-reason-${record.id}`}>Reason for blocking</label><input id={`block-reason-${record.id}`} name="reason" required minLength={3} placeholder="Example: repeated automated requests" /><button type="submit">Block report generation</button><small>Saved reports remain visible. New reports and refreshes stop immediately.</small></form>;
+                  })()}
                   {record.payments.length === 0 ? <form action={grantPaidAccess} className="admin-grant-form"><input type="hidden" name="ownerId" value={record.id} /><input type="hidden" name="accountEmail" value={record.email} /><label htmlFor={`payment-email-${record.id}`}>Payment email</label><input id={`payment-email-${record.id}`} name="paymentEmail" type="email" placeholder="Email used to pay" required /><button type="submit">Grant paid access</button><small>Use only after checking the payment receipt.</small></form> : null}
                 </article>
                 <article>

@@ -35,7 +35,7 @@ export default async function WalletHistoryPage() {
         <section className="wallet-history">
           <p className="report-eyebrow">Wallet history</p>
           <h1>Your past wallet reports.</h1>
-          <p>{access.used} of {access.limit} unique address slots used. Each payment adds three slots.</p>
+          <p>{access.used} saved wallet{access.used === 1 ? "" : "s"}. Reports include unlimited wallet addresses.</p>
           {history.length === 0 ? (
             <div className="wallet-history-empty">
               <h2>No reports yet.</h2>

@@ -17,17 +17,15 @@ export default async function Payment() {
     <main className="payment-placeholder">
       <div className="account-control"><AccountMenu /></div>
       <p>Secure checkout</p>
-      <h1>{hasPreviousBundle ? "Check three more wallet addresses." : "Your report and call are one step away."}</h1>
+      <h1>{hasPreviousBundle ? "Your paid tools are already unlocked." : "Add the private journal and a call."}</h1>
       <p>
         {hasPreviousBundle
-          ? "Another $3 payment adds three new Hyperliquid address slots to your account."
-          : "Pay $3 through BoomFi's secure checkout. Your onboarding answers are already saved."}
+          ? "Wallet reports are free and unlimited. Your payment already includes the private journal and 30-minute intro call."
+          : "Wallet reports are free. Pay $3 once to unlock the private journal and one 30-minute intro call."}
       </p>
-      <form action="/api/boomfi/checkout" method="post">
-        <button className="landing-button" type="submit">
-          Continue to secure checkout
-        </button>
-      </form>
+      {hasPreviousBundle ? <Link className="landing-button" href="/journal">Open my journal</Link> : <form action="/api/boomfi/checkout" method="post">
+        <button className="landing-button" type="submit">Continue to secure checkout</button>
+      </form>}
       <Link className="payment-back" href="/onboarding">
         Return to onboarding
       </Link>

@@ -111,13 +111,15 @@ export const reportAccess = query({
   args: {},
   handler: async (ctx) => {
     const ownerId = await requireOwnerId(ctx);
-    const [payments, wallets] = await Promise.all([
-      ctx.db.query("payments").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).collect(),
+    const [wallets, blocks] = await Promise.all([
       ctx.db.query("reportWallets").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).collect(),
+      ctx.db.query("accessBlocks").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).collect(),
     ]);
     return {
       used: wallets.length,
-      limit: payments.length * 3,
+      limit: Number.MAX_SAFE_INTEGER,
+      unlimited: true,
+      blocked: blocks.some((record) => record.unblockedAt == null),
       addresses: wallets.map((wallet) => wallet.address),
     };
   },
@@ -181,9 +183,9 @@ export const reportPageData = query({
   args: { address: v.optional(v.string()) },
   handler: async (ctx, { address }) => {
     const ownerId = await requireOwnerId(ctx);
-    const [payments, wallets] = await Promise.all([
-      ctx.db.query("payments").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).collect(),
+    const [wallets, blocks] = await Promise.all([
       ctx.db.query("reportWallets").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).collect(),
+      ctx.db.query("accessBlocks").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).collect(),
     ]);
     const history = wallets
       .toSorted((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt))
@@ -201,7 +203,9 @@ export const reportPageData = query({
     return {
       access: {
         used: wallets.length,
-        limit: payments.length * 3,
+        limit: Number.MAX_SAFE_INTEGER,
+        unlimited: true,
+        blocked: blocks.some((record) => record.unblockedAt == null),
         addresses: wallets.map((item) => item.address),
       },
       history,
@@ -223,6 +227,9 @@ export const recordPortfolioReport = mutation({
   handler: async (ctx, args) => {
     const expectedSecret = process.env.PAYMENT_WRITE_SECRET;
     if (!expectedSecret || args.writeSecret !== expectedSecret) throw new Error("Unauthorized portfolio write");
+    const activeBlock = (await ctx.db.query("accessBlocks").withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId)).collect())
+      .some((record) => record.unblockedAt == null);
+    if (activeBlock) throw new Error("ACCESS_BLOCKED");
     const addresses = [...new Set(args.addresses.map((address) => address.toLowerCase()))].toSorted();
     if (addresses.length < 2) throw new Error("PORTFOLIO_ADDRESSES_REQUIRED");
     const existing = await ctx.db.query("portfolioReports").withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId)).first();
@@ -249,6 +256,9 @@ export const recordReportWallet = mutation({
       throw new Error("Unauthorized report write");
 
     const address = args.address.toLowerCase();
+    const activeBlock = (await ctx.db.query("accessBlocks").withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId)).collect())
+      .some((record) => record.unblockedAt == null);
+    if (activeBlock) throw new Error("ACCESS_BLOCKED");
     if (!args.metrics && !args.report) throw new Error("REPORT_DATA_REQUIRED");
     const existing = await ctx.db
       .query("reportWallets")
@@ -263,11 +273,6 @@ export const recordReportWallet = mutation({
       return existing._id;
     }
 
-    const [payments, wallets] = await Promise.all([
-      ctx.db.query("payments").withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId)).collect(),
-      ctx.db.query("reportWallets").withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId)).collect(),
-    ]);
-    if (wallets.length >= payments.length * 3) throw new Error("REPORT_LIMIT_REACHED");
     const now = Date.now();
     return ctx.db.insert("reportWallets", {
       ownerId: args.ownerId,

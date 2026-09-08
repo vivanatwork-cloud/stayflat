@@ -25,6 +25,8 @@ export async function POST(request: Request) {
     if (addresses.length < 2 || addresses.some((address) => !walletPattern.test(address)))
       return NextResponse.json({ error: "Select at least two valid saved wallet addresses." }, { status: 400 });
     const access = await fetchQuery(api.payments.reportAccess, {}, { token });
+    if (access.blocked)
+      return NextResponse.json({ error: "Report generation is blocked for this account. Contact support if you think this is a mistake.", code: "ACCESS_BLOCKED" }, { status: 403 });
     if (addresses.some((address) => !access.addresses.includes(address)))
       return NextResponse.json({ error: "Portfolio reports can only include your saved wallets." }, { status: 403 });
     const lighterTokens = body.lighterTokens && typeof body.lighterTokens === "object" ? body.lighterTokens as Record<string, unknown> : {};

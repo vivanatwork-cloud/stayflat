@@ -308,7 +308,6 @@ export function OnboardingFlow({
               setSaveError("");
               setStep(editStep);
             }}
-            hasPaid={hasPaid}
           />
         )}
       </main>
@@ -363,12 +362,10 @@ function OnboardingSummary({
   answers,
   heading,
   onEdit,
-  hasPaid,
 }: {
   answers: Answers;
   heading: React.RefObject<HTMLHeadingElement | null>;
   onEdit: (step: number) => void;
-  hasPaid: boolean;
 }) {
   const rows: [string, string | string[] | undefined, number][] = [
     ["Trades", answers.markets, 1],
@@ -408,17 +405,9 @@ function OnboardingSummary({
           </div>
         ))}
       </dl>
-      {hasPaid ? (
-        <Link className="landing-button onboarding-payment" href="/report">
-          Continue to my wallet report
-        </Link>
-      ) : (
-        <form action="/api/boomfi/checkout" method="post">
-          <button className="landing-button onboarding-payment" type="submit">
-            Unlock StayFlat tools
-          </button>
-        </form>
-      )}
+      <Link className="landing-button onboarding-payment" href="/report">
+        Continue to my free wallet report
+      </Link>
     </section>
   );
 }

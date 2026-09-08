@@ -94,7 +94,7 @@ export function AccountMenu({
     <UserButton>
       <UserButton.MenuItems>
         <UserButton.Link label="Trading journal" labelIcon={icon(<JournalIcon />)} href={destination("/journal")} />
-        <UserButton.Link label="Wallet Analytics" labelIcon={icon(<ReportIcon />)} href={destination("/report")} />
+        <UserButton.Link label="Wallet Analytics" labelIcon={<ReportIcon />} href="/report" />
         <UserButton.Link label="Schedule a call" labelIcon={icon(<MessageIcon />)} href={destination("https://t.me/VivanLiveTeam")} />
       </UserButton.MenuItems>
     </UserButton>

@@ -33,8 +33,6 @@ export default async function Report({ searchParams }: { searchParams: Promise<{
     { address },
     { token },
   );
-  if (access.limit === 0) redirect("/payment");
-
   return (
     <main className="report-home">
       <div className="report-wrap">
@@ -50,11 +48,11 @@ export default async function Report({ searchParams }: { searchParams: Promise<{
         </header>
         <WalletReport
           key={address || "new-report"}
-          initialAccess={{ used: access.used, limit: access.limit }}
+          initialAccess={{ used: access.used, limit: access.limit, unlimited: access.unlimited, blocked: access.blocked }}
           initialReport={saved ? {
             address: saved.address,
             report: saved.report ?? legacyMultiVenueMetrics(saved.metrics!),
-            access: { used: access.used, limit: access.limit },
+            access: { used: access.used, limit: access.limit, unlimited: access.unlimited, blocked: access.blocked },
           } : null}
           initialAddress={address || ""}
           initialHistory={history}

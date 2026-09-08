@@ -33,6 +33,32 @@ export const grantPaidAccess = mutation({
   },
 });
 
+export const blockUser = mutation({
+  args: { ownerId: v.string(), reason: v.string() },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const reason = args.reason.trim();
+    if (!reason) throw new Error("A block reason is required");
+    const existing = (await ctx.db.query("accessBlocks").withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId)).collect())
+      .find((record) => record.unblockedAt == null);
+    if (existing) return { changed: false };
+    await ctx.db.insert("accessBlocks", { ownerId: args.ownerId, reason, blockedAt: Date.now(), blockedBy: admin.subject });
+    return { changed: true };
+  },
+});
+
+export const unblockUser = mutation({
+  args: { ownerId: v.string() },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const active = (await ctx.db.query("accessBlocks").withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId)).collect())
+      .find((record) => record.unblockedAt == null);
+    if (!active) return { changed: false };
+    await ctx.db.patch(active._id, { unblockedAt: Date.now(), unblockedBy: admin.subject });
+    return { changed: true };
+  },
+});
+
 export const reportForAdmin = query({
   args: { walletId: v.id("reportWallets") },
   handler: async (ctx, args) => {
@@ -50,7 +76,7 @@ export const overview = query({
   handler: async (ctx) => {
     await requireAdmin(ctx);
 
-    const [payments, wallets, onboarding, journals, exchangeRequests, legacyTrades, downloads] =
+    const [payments, wallets, onboarding, journals, exchangeRequests, legacyTrades, downloads, accessBlocks] =
       await Promise.all([
         ctx.db.query("payments").collect(),
         ctx.db.query("reportWallets").collect(),
@@ -59,6 +85,7 @@ export const overview = query({
         ctx.db.query("exchangeRequests").collect(),
         ctx.db.query("trades").collect(),
         ctx.db.query("reportDownloads").collect(),
+        ctx.db.query("accessBlocks").collect(),
       ]);
 
     return {
@@ -130,6 +157,15 @@ export const overview = query({
         address: download.address,
         accountEmail: download.accountEmail,
         downloadedAt: download.downloadedAt,
+      })),
+      accessBlocks: accessBlocks.map((record) => ({
+        id: record._id,
+        ownerId: record.ownerId,
+        reason: record.reason,
+        blockedAt: record.blockedAt,
+        blockedBy: record.blockedBy,
+        unblockedAt: record.unblockedAt,
+        unblockedBy: record.unblockedBy,
       })),
       legacyTradeCount: legacyTrades.length,
     };

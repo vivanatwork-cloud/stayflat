@@ -8,7 +8,7 @@ import { SiteHeader } from "@/components/brand/site-header";
 export const metadata: Metadata = {
   title: "Find the trading pattern costing you money",
   description:
-    "Turn your trading history into one clear behavior pattern and a practical rule to stop repeating it. $3 once, with a report, journal, and 30-minute call.",
+    "Get a free report across your Hyperliquid, Arcus, and Lighter trading history. See the behavior patterns hiding in your own record.",
   alternates: { canonical: "/" },
 };
 
@@ -21,7 +21,7 @@ const leaks = [
 const steps = [
   ["Tell us how you trade", "Complete a short onboarding about your habits, goals, and the moments where discipline tends to break."],
   ["Add your trading record", "Connect a public Hyperliquid wallet or start a private manual journal. StayFlat looks for repeated behavior, not one bad trade."],
-  ["Get your pattern and guardrail", "Review the evidence, use the journal, and turn the first pattern into one practical rule during a 30-minute call with Vivan."],
+  ["Get your free report", "Review the evidence across your wallets and exchanges. Add the private journal and a 30-minute call only if you want more support."],
 ];
 
 const forYou = [
@@ -37,8 +37,8 @@ const notForYou = [
 ];
 
 const questions = [
-  ["What do I get for $3?", "You get a full behavior report, access to the trading journal, and one 30-minute intro call with Vivan. It is a one-time $3 payment, not a subscription."],
-  ["Which trading records can I use?", "Automatic with a public Hyperliquid wallet. Other platforms start with the manual journal. You can also request support for your exchange or broker."],
+  ["Is the wallet report free?", "Yes. You can generate reports for unlimited wallet addresses at no cost. The private journal and one 30-minute intro call with Vivan cost $3 once."],
+  ["Which trading records can I use?", "StayFlat currently reads Hyperliquid, Arcus, and Lighter perpetual trading history."],
   ["Do you need access to my funds?", "No. A public wallet address is read-only. StayFlat never needs your seed phrase, private key, or permission to place a trade."],
   ["Is this financial advice or therapy?", "No. StayFlat is educational coaching focused on reviewing your own record. It does not provide signals, investment advice, clinical care, or guarantees."],
 ];
@@ -57,8 +57,8 @@ export default function Home() {
             your own history, and build one rule to stop repeating it.
           </p>
           <p className="landing-hero-offer">
-            <strong>Full report + journal + 30-minute call</strong>
-            <span>$3 once · no subscription</span>
+            <strong>Free multi-wallet trading report</strong>
+            <span>Unlimited wallet addresses</span>
           </p>
           <div className="landing-actions">
             <div className="landing-primary-action">
@@ -66,7 +66,7 @@ export default function Home() {
             </div>
             <Link className="landing-text-link" href="/#sample">See a sample read <span aria-hidden="true">→</span></Link>
           </div>
-          <p className="landing-cta-note">No signals. No access to your funds. Payment comes after onboarding.</p>
+          <p className="landing-cta-note">No card required. No signals. No access to your funds.</p>
           <div className="landing-hero-line" aria-hidden="true"><FlatlineMark variant="wide" /></div>
         </section>
 
@@ -166,8 +166,8 @@ export default function Home() {
         <section className="landing-book" id="signup">
           <p className="landing-eyebrow">Start here</p>
           <h2>Find the pattern. Build the rule that stops it.</h2>
-          <p className="landing-prose landing-dim">Complete the short onboarding first. Payment follows before the full report and journal are unlocked.</p>
-          <p className="landing-offer"><strong>Full report + journal · $3 one-time</strong> · 30-minute intro call included</p>
+          <p className="landing-prose landing-dim">Complete the short onboarding, then generate your free report across unlimited wallet addresses.</p>
+          <p className="landing-offer"><strong>Wallet reports · free</strong> · private journal and 30-minute intro call available for $3 once</p>
           <div className="landing-actions landing-centered">
             <Link className="landing-button" href="/sign-up">Find my trading pattern</Link>
             <a className="landing-text-link" href="#sample">Review the sample <span aria-hidden="true">→</span></a>

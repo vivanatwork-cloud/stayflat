@@ -36,6 +36,14 @@ export default defineSchema({
     .index("by_owner", ["ownerId"])
     .index("by_email", ["email"])
     .index("by_provider_payment", ["providerPaymentId"]),
+  accessBlocks: defineTable({
+    ownerId: v.string(),
+    reason: v.string(),
+    blockedAt: v.number(),
+    blockedBy: v.string(),
+    unblockedAt: v.optional(v.number()),
+    unblockedBy: v.optional(v.string()),
+  }).index("by_owner", ["ownerId"]),
   reportWallets: defineTable({
     ownerId: v.string(),
     address: v.string(),

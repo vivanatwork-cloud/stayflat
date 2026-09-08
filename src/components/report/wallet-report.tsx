@@ -7,7 +7,7 @@ import { FlatlineMark } from "@/components/brand/flatline-mark";
 import type { ReportMetrics } from "@/lib/hyperliquid/metrics";
 import type { MultiVenueMetrics, VenueName } from "@/lib/report/multi-venue";
 
-type Access = { used: number; limit: number };
+type Access = { used: number; limit: number; unlimited?: boolean; blocked?: boolean };
 type ReportResponse = { address: string; addresses?: string[]; report: MultiVenueMetrics; access: Access };
 type HistoryItem = { address: string; metrics?: ReportMetrics; report?: MultiVenueMetrics; createdAt: number; updatedAt?: number };
 type SavedPortfolio = { addresses: string[]; report: MultiVenueMetrics; createdAt: number; updatedAt: number };
@@ -70,17 +70,12 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
   const [error, setError] = useState("");
   const [access, setAccess] = useState(initialAccess);
   const [history, setHistory] = useState(initialHistory);
-  const [limitReached, setLimitReached] = useState(initialAccess.used >= initialAccess.limit);
   const [announcement, setAnnouncement] = useState("");
   const [reportReadyKey, setReportReadyKey] = useState(0);
   const [selectedAddresses, setSelectedAddresses] = useState(() => initialHistory.map((item) => item.address));
   const [portfolioTokens, setPortfolioTokens] = useState<Record<string, string>>({});
   const [lighterWallets, setLighterWallets] = useState<string[]>([]);
-  const normalizedAddress = address.trim().toLowerCase();
-  const savedAddress = history.some(
-    (item) => item.address.toLowerCase() === normalizedAddress,
-  );
-  const newAddressBlocked = limitReached && !savedAddress;
+  const newAddressBlocked = Boolean(access.blocked);
 
   useEffect(() => {
     if (error) errorRef.current?.focus();
@@ -107,7 +102,6 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
       });
       const data = await response.json().catch(() => null) as ReportResponse & { error?: string; code?: string } | null;
       if (!response.ok) {
-        if (data?.code === "REPORT_LIMIT_REACHED") setLimitReached(true);
         if (data?.code === "LIGHTER_TOKEN_REQUIRED" || data?.code === "LIGHTER_TOKEN_INVALID") {
           setLighterTokenNeeded(true);
           window.setTimeout(() => lighterTokenRef.current?.focus(), 0);
@@ -121,7 +115,6 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
       const next = { address: data.address, report: data.report, createdAt: Date.now(), updatedAt: Date.now() };
         return [next, ...current.filter((item) => item.address !== data.address)];
       });
-      setLimitReached(data.access.used >= data.access.limit);
       setStatus("idle");
       setAnnouncement("Report ready.");
       setReportReadyKey((key) => key + 1);
@@ -151,7 +144,7 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
       return;
     }
     if (newAddressBlocked) {
-      setError("You have used every wallet slot. Add more slots to run a report for a new address.");
+      setError("Report generation is blocked for this account. Contact support if you think this is a mistake.");
       return;
     }
     await generate(value);
@@ -213,6 +206,7 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
       refreshing={status === "loading"}
       error={error}
       readyKey={reportReadyKey}
+      blocked={Boolean(access.blocked)}
     />
   </>;
 
@@ -227,8 +221,8 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
         If it trades across venues, you&apos;ll also get a combined view.
       </p>
       <div className="report-allowance" aria-label="Wallet report usage">
-        <strong>{access.used} of {access.limit}</strong>
-        <span>wallet slots used</span>
+        <strong>{access.used}</strong>
+        <span>saved wallets · unlimited</span>
       </div>
       <form className="report-wallet-form" onSubmit={submit} noValidate>
         <div className="report-address-row">
@@ -293,12 +287,12 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
       {status === "loading" && <ReportLoading onCancel={() => requestRef.current?.abort()} />}
       {error && <p ref={errorRef} tabIndex={-1} className="report-error" id="wallet-error" role="alert">{error}</p>}
       <p className="report-fineprint" id="wallet-help">
-        One wallet uses one slot. StayFlat reads public venue data and can&apos;t touch your funds.
+        Reports are free with unlimited wallets. StayFlat reads public venue data and can&apos;t touch your funds.
       </p>
       <div className="report-options">
-        {newAddressBlocked && (
+        {access.blocked && (
           <p className="report-limit-message">
-            Need another address? <Link href="/payment">Add three report slots.</Link>
+            Report generation is blocked for this account. Contact support if you think this is a mistake.
           </p>
         )}
         <p>
@@ -320,7 +314,7 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
               </div>
               {lighterWallets.map((wallet) => <label className="report-portfolio-token" key={wallet}><span>Lighter key for {wallet.slice(0, 8)}…{wallet.slice(-6)}</span><input type="password" value={portfolioTokens[wallet] ?? ""} onChange={(event) => setPortfolioTokens((current) => ({ ...current, [wallet]: event.target.value }))} placeholder="ro:…" autoComplete="off" /></label>)}
               <div className="report-portfolio-actions">
-                <button type="button" onClick={generatePortfolio} disabled={selectedAddresses.length < 2 || status === "loading"}>{status === "loading" ? "Building portfolio…" : `Build portfolio · ${selectedAddresses.length} wallets`}</button>
+                <button type="button" onClick={generatePortfolio} disabled={selectedAddresses.length < 2 || status === "loading" || access.blocked}>{status === "loading" ? "Building portfolio…" : `Build portfolio · ${selectedAddresses.length} wallets`}</button>
                 {savedPortfolio ? <button type="button" className="report-link-button" onClick={() => { setReport({ address: savedPortfolio.addresses[0], addresses: savedPortfolio.addresses, report: savedPortfolio.report, access }); router.replace("/report?portfolio=1"); }}>View saved portfolio</button> : null}
               </div>
             </div>
@@ -373,6 +367,7 @@ function ReportResult({
   refreshing,
   error,
   readyKey,
+  blocked,
 }: {
   report: ReportResponse;
   onReset: () => void;
@@ -381,6 +376,7 @@ function ReportResult({
   refreshing: boolean;
   error: string;
   readyKey: number;
+  blocked: boolean;
 }) {
   const hasCombined = report.report.activeVenues.length >= 2;
   const isPortfolio = Boolean(report.addresses && report.addresses.length > 1);
@@ -624,7 +620,7 @@ function ReportResult({
       <div className="report-actions">
         <a href={isPortfolio ? "/api/report/portfolio/pdf" : `/api/report/pdf?address=${encodeURIComponent(report.address)}`} download>Download PDF</a>
         <Link href="/journal">Open my trading journal</Link>
-        <button className="report-link-button" type="button" onClick={refreshing ? onCancel : onRefresh} disabled={false}>
+        <button className="report-link-button" type="button" onClick={refreshing ? onCancel : onRefresh} disabled={blocked}>
           {refreshing ? "Cancel refresh" : "Refresh this report"}
         </button>
         <button className="report-link-button" onClick={onReset}>

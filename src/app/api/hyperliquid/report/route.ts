@@ -27,18 +27,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Sign in again to generate your report." }, { status: 401 });
     const convex = new ConvexHttpClient(convexUrl);
     const access = await fetchQuery(api.payments.reportAccess, {}, { token });
-    if (access.limit === 0)
-      return NextResponse.json({ error: "Complete payment to generate your report." }, { status: 402 });
+    if (access.blocked)
+      return NextResponse.json({ error: "Report generation is blocked for this account. Contact support if you think this is a mistake.", code: "ACCESS_BLOCKED" }, { status: 403 });
 
     const { address, timezoneOffsetMinutes, lighterToken } = await request.json();
     if (typeof address !== "string" || !walletPattern.test(address)) return NextResponse.json({ error: "Enter a valid 42-character wallet address." }, { status: 400 });
     const normalizedAddress = address.toLowerCase();
-    const existingAddress = access.addresses.includes(normalizedAddress);
-    if (!existingAddress && access.used >= access.limit)
-      return NextResponse.json(
-        { error: `You have used all ${access.limit} address slots. Buy another report bundle to check three more addresses.`, code: "REPORT_LIMIT_REACHED" },
-        { status: 402 },
-      );
     const offset = typeof timezoneOffsetMinutes === "number" && Math.abs(timezoneOffsetMinutes) <= 840 ? timezoneOffsetMinutes : 0;
     if (lighterToken != null && typeof lighterToken !== "string")
       return NextResponse.json({ error: "The Lighter token is not valid.", code: "LIGHTER_TOKEN_INVALID" }, { status: 400 });
@@ -61,8 +55,8 @@ export async function POST(request: Request) {
     try {
       await convex.mutation(api.payments.recordReportWallet, { writeSecret, ownerId: userId, address: normalizedAddress, report });
     } catch (error) {
-      if (error instanceof Error && error.message.includes("REPORT_LIMIT_REACHED"))
-        return NextResponse.json({ error: "Your address limit was reached. Buy another report bundle to continue.", code: "REPORT_LIMIT_REACHED" }, { status: 402 });
+      if (error instanceof Error && error.message.includes("ACCESS_BLOCKED"))
+        return NextResponse.json({ error: "Report generation is blocked for this account.", code: "ACCESS_BLOCKED" }, { status: 403 });
       throw error;
     }
     const updatedAccess = await fetchQuery(api.payments.reportAccess, {}, { token });
