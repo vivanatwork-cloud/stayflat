@@ -52,7 +52,6 @@ export function AccountMenu({
 }) {
   const { isAuthenticated } = useConvexAuth();
   const knownPaid = accessConfirmed ? true : initialHasPaid;
-  const [accessChecked, setAccessChecked] = useState(knownPaid !== undefined);
   const [recoveredHasPaid, setRecoveredHasPaid] = useState<boolean | undefined>(
     knownPaid,
   );
@@ -77,8 +76,6 @@ export function AccountMenu({
         }
       } catch {
         // The live Convex query remains the fallback if recovery is unavailable.
-      } finally {
-        if (!controller.signal.aborted) setAccessChecked(true);
       }
     }
     void checkAccess();
@@ -86,7 +83,7 @@ export function AccountMenu({
   }, [isAuthenticated, knownPaid]);
 
   const paid = knownPaid ?? recoveredHasPaid ?? hasPaid;
-  const locked = accessChecked && paid === false;
+  const locked = paid !== true;
   const destination = (unlockedHref: string) => locked ? "/payment" : unlockedHref;
   const icon = (unlockedIcon: ReactNode) => locked ? <LockIcon /> : unlockedIcon;
 

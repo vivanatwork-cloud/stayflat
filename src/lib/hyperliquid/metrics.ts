@@ -52,6 +52,8 @@ type SnapshotFields = {
   totalPerpsVolume?: number;
   profitBand?: { start: number; end: number } | null;
   busyDayDate?: string | null;
+  bestAsset?: { coin: string; pnl: number } | null;
+  worstAsset?: { coin: string; pnl: number } | null;
 };
 export type ReportMetrics = SnapshotFields & (
   | { empty: true }
@@ -364,6 +366,11 @@ export function computeMetrics(rawFills: RawFill[], portfolioPnl: number | null,
   const coinCounts = new Map<string, number>();
   positions.forEach((position) => coinCounts.set(position.coin, (coinCounts.get(position.coin) || 0) + 1));
   const topCoin = [...coinCounts].toSorted((a, b) => b[1] - a[1])[0]?.[0] || null;
+  const assetPnl = new Map<string, number>();
+  positions.forEach((position) => assetPnl.set(position.coin, (assetPnl.get(position.coin) || 0) + netPnlFor(position)));
+  const rankedAssets = [...assetPnl].map(([coin, pnl]) => ({ coin, pnl })).toSorted((a, b) => b.pnl - a.pnl || a.coin.localeCompare(b.coin));
+  const bestAsset = rankedAssets.find((asset) => asset.pnl > 0) ?? null;
+  const worstAsset = rankedAssets.toReversed().find((asset) => asset.pnl < 0) ?? null;
   let cumulative = 0;
   const cumulativePnl = positions.map((position) => ({ time: position.closedAt, value: cumulative += netPnlFor(position) }));
   const positionCount = positions.length;
@@ -393,6 +400,8 @@ export function computeMetrics(rawFills: RawFill[], portfolioPnl: number | null,
     biggestWin: positions.reduce((maximum, position) => Math.max(maximum, netPnlFor(position)), 0),
     coinCount: coinCounts.size,
     topCoin,
+    bestAsset,
+    worstAsset,
     dateFrom: fills[0].time,
     dateTo: fills.at(-1)!.time,
     revengeRatio: medianNotional > 0 && afterLoss.length >= 3 ? median(afterLoss) / medianNotional : null,

@@ -12,6 +12,7 @@ const metrics = {
   longCount: 7, shortCount: 5, busyDayCount: 4, busyDayPnl: 90, busyDayDate: "2024-01-08",
   feeMultiple: .04, lossShare: .5, lossCount: 8, positionCount: 12, longestWinStreak: 3,
   longestLossStreak: 2, avgTradeDurationMinutes: 90, totalPerpsVolume: 125000,
+  bestAsset: { coin: "BTC", pnl: 300 }, worstAsset: { coin: "ETH", pnl: -90 },
 } satisfies ReportMetrics;
 
 describe("report PDF", () => {
@@ -19,6 +20,8 @@ describe("report PDF", () => {
     const rows = reportPdfRows(metrics);
     expect(rows).toContainEqual(["Perps P&L (all-time)", "$420"]);
     expect(rows).toContainEqual(["Best entry window", "09:00-12:00"]);
+    expect(rows).toContainEqual(["Best asset", "BTC | $300"]);
+    expect(rows).toContainEqual(["Largest asset drag", "ETH | -$90"]);
   });
 
   it("creates a readable, paginated PDF", async () => {

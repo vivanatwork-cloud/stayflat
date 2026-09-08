@@ -7,23 +7,22 @@ import { getConvexToken } from "@/lib/convex-auth";
 
 export default async function Payment() {
   const session = await auth();
-  let hasPreviousBundle = false;
+  let hasPaid = false;
   if (session.userId && process.env.NEXT_PUBLIC_CONVEX_URL) {
     const token = await getConvexToken(session);
-    const access = await fetchQuery(api.payments.reportAccess, {}, { token });
-    hasPreviousBundle = access.limit > 0;
+    if (token) hasPaid = await fetchQuery(api.payments.hasPaid, {}, { token });
   }
   return (
     <main className="payment-placeholder">
       <div className="account-control"><AccountMenu /></div>
       <p>Secure checkout</p>
-      <h1>{hasPreviousBundle ? "Your paid tools are already unlocked." : "Add the private journal and a call."}</h1>
+      <h1>{hasPaid ? "Your paid tools are already unlocked." : "Unlock your journal and coaching call."}</h1>
       <p>
-        {hasPreviousBundle
-          ? "Wallet reports are free and unlimited. Your payment already includes the private journal and 30-minute intro call."
-          : "Wallet reports are free. Pay $3 once to unlock the private journal and one 30-minute intro call."}
+        {hasPaid
+          ? "Your private journal and 30-minute call are ready. Wallet reports remain free and unlimited."
+          : "Wallet reports are free. Pay $3 once to use the private journal and schedule one 30-minute call."}
       </p>
-      {hasPreviousBundle ? <Link className="landing-button" href="/journal">Open my journal</Link> : <form action="/api/boomfi/checkout" method="post">
+      {hasPaid ? <Link className="landing-button" href="/journal">Open my journal</Link> : <form action="/api/boomfi/checkout" method="post">
         <button className="landing-button" type="submit">Continue to secure checkout</button>
       </form>}
       <Link className="payment-back" href="/onboarding">

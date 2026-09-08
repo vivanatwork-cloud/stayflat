@@ -58,7 +58,7 @@ function historySummary(item: HistoryItem) {
   return `${money(metrics.perpPnl)} all-time PnL · ${metrics.fillCount} fills${venues}`;
 }
 
-export function WalletReport({ initialAccess, initialReport = null, initialAddress = "", initialHistory = [], savedPortfolio = null, openSavedPortfolio = false }: { initialAccess: Access; initialReport?: ReportResponse | null; initialAddress?: string; initialHistory?: HistoryItem[]; savedPortfolio?: SavedPortfolio | null; openSavedPortfolio?: boolean }) {
+export function WalletReport({ initialAccess, initialReport = null, initialAddress = "", initialHistory = [], savedPortfolio = null, openSavedPortfolio = false, initialHasPaid = false }: { initialAccess: Access; initialReport?: ReportResponse | null; initialAddress?: string; initialHistory?: HistoryItem[]; savedPortfolio?: SavedPortfolio | null; openSavedPortfolio?: boolean; initialHasPaid?: boolean }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const lighterTokenRef = useRef<HTMLInputElement>(null);
@@ -261,6 +261,7 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
       blocked={Boolean(access.blocked)}
       onDelete={deleteSavedReport}
       deleting={deleting}
+      hasPaid={initialHasPaid}
     />
   </>;
 
@@ -436,6 +437,7 @@ function ReportResult({
   blocked,
   onDelete,
   deleting,
+  hasPaid,
 }: {
   report: ReportResponse;
   onReset: () => void;
@@ -447,6 +449,7 @@ function ReportResult({
   blocked: boolean;
   onDelete: (target: { address?: string; portfolio?: true }) => Promise<void>;
   deleting: boolean;
+  hasPaid: boolean;
 }) {
   const hasWalletSwitcher = Boolean(report.walletReports && report.walletReports.length > 1);
   const [selectedWallet, setSelectedWallet] = useState<"all" | string>(report.addresses && report.addresses.length > 1 ? "all" : report.address);
@@ -624,6 +627,8 @@ function ReportResult({
           <Stat label="Fills read" value={String(metrics.fillCount)} />
           <Stat label="Fees paid" value={money(metrics.fees)} />
           <Stat label="Markets" value={String(metrics.coinCount)} />
+          <Stat label="Best asset" value={metrics.bestAsset ? `${metrics.bestAsset.coin} · ${money(metrics.bestAsset.pnl)}` : "—"} />
+          <Stat label="Largest asset drag" value={metrics.worstAsset ? `${metrics.worstAsset.coin} · ${money(metrics.worstAsset.pnl)}` : "—"} />
         </div>
         <div className="report-coverage">
           <span><b>{confidence} confidence</b> · based on {positionCount || "an unknown number of"} completed positions{isPortfolio ? ` across ${report.addresses!.length} wallets` : visibleVenue === "combined" ? ` across ${currentReport.activeVenues.length} venues` : ""}</span>
@@ -699,12 +704,12 @@ function ReportResult({
         </article>
       )}
       <div className="report-cta">
-        <span>Ready to schedule the call included with your report?</span>
-        <a href="https://t.me/VivanLiveTeam" target="_blank" rel="noreferrer">Message Vivan on Telegram</a>
+        <span>{hasPaid ? "Your 30-minute call is ready to schedule." : "Want a private journal and a 30-minute trading call?"}</span>
+        {hasPaid ? <a href="https://t.me/VivanLiveTeam" target="_blank" rel="noreferrer">Schedule my call</a> : <Link href="/payment">Unlock journal + call</Link>}
       </div>
       <div className="report-actions">
         <a href={isPortfolio ? "/api/report/portfolio/pdf" : `/api/report/pdf?address=${encodeURIComponent(currentAddress)}`} download>Download PDF</a>
-        <Link href="/journal">Open my trading journal</Link>
+        <Link href={hasPaid ? "/journal" : "/payment"}>{hasPaid ? "Open my trading journal" : "Unlock my trading journal"}</Link>
         <button className="report-link-button" type="button" onClick={refreshing ? onCancel : onRefresh} disabled={blocked}>
           {refreshing ? "Cancel refresh" : "Refresh this report"}
         </button>

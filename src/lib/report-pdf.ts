@@ -26,6 +26,8 @@ export function reportPdfRows(metrics: FilledMetrics) {
     ["Fees paid", money(metrics.fees)],
     ["Biggest realized win", money(metrics.biggestWin)],
     ["Biggest realized loss", money(metrics.biggestLoss)],
+    ["Best asset", metrics.bestAsset ? `${metrics.bestAsset.coin} | ${money(metrics.bestAsset.pnl)}` : "-"],
+    ["Largest asset drag", metrics.worstAsset ? `${metrics.worstAsset.coin} | ${money(metrics.worstAsset.pnl)}` : "-"],
     ["Best entry window", metrics.profitBand ? `${hour(metrics.profitBand.start)}-${hour(metrics.profitBand.end)}` : "-"],
     ["Worst entry window", metrics.dangerBand ? `${hour(metrics.dangerBand.start)}-${hour(metrics.dangerBand.end)}` : "-"],
     ["Busiest-day result", `${money(metrics.busyDayPnl)}${metrics.busyDayDate ? ` (${metrics.busyDayDate})` : ""}`],
@@ -47,7 +49,7 @@ export function reportPdfVenueRows(report?: MultiVenueMetrics) {
     if (!snapshot) return [];
     const metrics = snapshot.metrics;
     const label = venue === "hyperliquid" ? "Hyperliquid" : venue === "arcus" ? "Arcus" : "Lighter";
-    return [[label, metrics.empty ? "No active fills" : `${metrics.fillCount} fills | ${money(metrics.perpPnl)} all-time P&L`]];
+    return [[label, metrics.empty ? "No active fills" : `${metrics.fillCount} fills | ${money(metrics.perpPnl)} P&L | best ${metrics.bestAsset?.coin ?? "-"} | drag ${metrics.worstAsset?.coin ?? "-"}`]];
   });
 }
 

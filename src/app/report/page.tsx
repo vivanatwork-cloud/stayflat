@@ -28,11 +28,10 @@ export default async function Report({ searchParams }: { searchParams: Promise<{
   if (!token) redirect("/sign-in?redirect_url=/report");
   if (!process.env.NEXT_PUBLIC_CONVEX_URL)
     throw new Error("Report data is unavailable right now.");
-  const { access, history, saved, portfolio: savedPortfolio } = await fetchQuery(
-    api.payments.reportPageData,
-    { address },
-    { token },
-  );
+  const [{ access, history, saved, portfolio: savedPortfolio }, hasPaid] = await Promise.all([
+    fetchQuery(api.payments.reportPageData, { address }, { token }),
+    fetchQuery(api.payments.hasPaid, {}, { token }),
+  ]);
   return (
     <main className="report-home">
       <div className="report-wrap">
@@ -58,6 +57,7 @@ export default async function Report({ searchParams }: { searchParams: Promise<{
           initialHistory={history}
           savedPortfolio={savedPortfolio ?? null}
           openSavedPortfolio={portfolio === "1"}
+          initialHasPaid={hasPaid}
         />
       </div>
     </main>

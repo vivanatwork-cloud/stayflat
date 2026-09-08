@@ -113,6 +113,13 @@ const questions: Question[] = [
       "Feel more in control",
     ],
   },
+  {
+    key: "profitability",
+    title: "Are you profitable?",
+    help: "Choose the answer that best describes your trading today.",
+    type: "single",
+    options: ["Yes", "No", "I don't know", "Break even"],
+  },
 ];
 
 function hasValue(question: Question, answers: Answers) {
@@ -230,7 +237,7 @@ export function OnboardingFlow({
               First, we understand the <em>trader</em>.
             </h1>
             <p className="onboarding-lead">
-              Eight honest questions help us understand you better and shape the
+              Nine honest questions help us understand you better and shape the
               report around what you actually need.
             </p>
             <div className="onboarding-privacy">
@@ -376,6 +383,7 @@ function OnboardingSummary({
     ["Patterns", answers.leaks, 6],
     ["Support check", answers.flags, 7],
     ["Goal", answers.goal, 8],
+    ["Profitability", answers.profitability, 9],
   ];
   return (
     <section>

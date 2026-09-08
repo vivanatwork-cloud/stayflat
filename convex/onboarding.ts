@@ -22,9 +22,9 @@ export const save = mutation({
   },
   handler: async (ctx, args) => {
     const ownerId = await requireOwnerId(ctx);
-    if (!Number.isInteger(args.step) || args.step < 0 || args.step > 9)
+    if (!Number.isInteger(args.step) || args.step < 0 || args.step > 10)
       throw new Error("Invalid onboarding step");
-    if (args.completed !== (args.step === 9))
+    if (args.completed !== (args.step === 10))
       throw new Error("Invalid onboarding completion state");
     const multipleChoiceAnswers = [
       args.answers.markets,

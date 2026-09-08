@@ -35,6 +35,8 @@ const snapshotFields = {
   totalPerpsVolume: v.optional(v.number()),
   profitBand: v.optional(v.union(v.object({ start: v.number(), end: v.number() }), v.null())),
   busyDayDate: v.optional(v.union(v.string(), v.null())),
+  bestAsset: v.optional(v.union(v.object({ coin: v.string(), pnl: v.number() }), v.null())),
+  worstAsset: v.optional(v.union(v.object({ coin: v.string(), pnl: v.number() }), v.null())),
 };
 
 export const reportMetricsValidator = v.union(

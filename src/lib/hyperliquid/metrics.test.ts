@@ -128,6 +128,19 @@ describe("computeMetrics", () => {
     }
   });
 
+  it("finds the best and worst assets by net realized PnL", () => {
+    const result = computeMetrics([
+      ...roundTrip(10, { coin: "BTC" }),
+      ...roundTrip(-5, { coin: "ETH" }),
+      ...roundTrip(2, { coin: "SOL" }),
+    ], null);
+    expect(result.empty).toBe(false);
+    if (!result.empty) {
+      expect(result.bestAsset).toEqual({ coin: "BTC", pnl: 8 });
+      expect(result.worstAsset).toEqual({ coin: "ETH", pnl: -7 });
+    }
+  });
+
   it("calculates streaks from consecutive active trading days", () => {
     const result = computeMetrics([
       ...roundTrip(10, { time: Date.UTC(2026, 6, 30, 10) }),

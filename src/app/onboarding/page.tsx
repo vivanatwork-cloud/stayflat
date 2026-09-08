@@ -44,7 +44,7 @@ export default async function Onboarding() {
   return (
     <OnboardingFlow
       initialAnswers={(saved?.answers ?? {}) as Answers}
-      initialStep={Math.min(saved?.step ?? 0, 9)}
+      initialStep={Math.min(saved?.step ?? 0, 10)}
       hasPaid={paid}
     />
   );

@@ -40,6 +40,9 @@ const goal = v.union(
   v.literal("Stick to my plan"), v.literal("Trade less"),
   v.literal("Feel more in control"),
 );
+const profitability = v.union(
+  v.literal("Yes"), v.literal("No"), v.literal("I don't know"), v.literal("Break even"),
+);
 
 export const onboardingAnswersValidator = v.object({
   markets: v.optional(v.array(markets)),
@@ -51,4 +54,5 @@ export const onboardingAnswersValidator = v.object({
   leaks: v.optional(v.array(leaks)),
   flags: v.optional(v.array(flags)),
   goal: v.optional(goal),
+  profitability: v.optional(profitability),
 });
