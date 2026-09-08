@@ -14,6 +14,20 @@ const entryTypeValidator = v.object({
   marketFees: v.number(),
   limitFees: v.number(),
 });
+const moonPeriodValidator = v.object({
+  pnl: v.number(),
+  positions: v.number(),
+  wins: v.number(),
+  losses: v.number(),
+  winRate: v.union(v.number(), v.null()),
+  averagePnl: v.union(v.number(), v.null()),
+});
+const moonPerformanceValidator = v.object({
+  newMoon: moonPeriodValidator,
+  fullMoon: moonPeriodValidator,
+  comparisonReady: v.boolean(),
+  betterPeriod: v.union(v.literal("new"), v.literal("full"), v.literal("tie"), v.null()),
+});
 const snapshotFields = {
   generatedAt: v.optional(v.number()),
   historyLimited: v.optional(v.boolean()),
@@ -37,6 +51,7 @@ const snapshotFields = {
   busyDayDate: v.optional(v.union(v.string(), v.null())),
   bestAsset: v.optional(v.union(v.object({ coin: v.string(), pnl: v.number() }), v.null())),
   worstAsset: v.optional(v.union(v.object({ coin: v.string(), pnl: v.number() }), v.null())),
+  moonPerformance: v.optional(moonPerformanceValidator),
 };
 
 export const reportMetricsValidator = v.union(

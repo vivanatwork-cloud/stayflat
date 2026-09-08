@@ -1,4 +1,5 @@
 import { computeMetrics, type RawFill, type ReportMetrics } from "../hyperliquid/metrics";
+import type { MoonPhaseBoundary } from "../moon/performance";
 
 export type VenueName = "hyperliquid" | "arcus" | "lighter";
 export type VenueSnapshot = {
@@ -41,6 +42,7 @@ const emptyMetrics = (): ReportMetrics => computeMetrics([], null);
 export function buildMultiVenueMetrics(
   sources: { hyperliquid: VenueSource; arcus: VenueSource; lighter?: VenueSource },
   timezoneOffsetMinutes = 0,
+  moonBoundaries: MoonPhaseBoundary[] = [],
 ): MultiVenueMetrics {
   const normalizedSources: Record<VenueName, VenueSource> = {
     hyperliquid: sources.hyperliquid,
@@ -51,7 +53,7 @@ export function buildMultiVenueMetrics(
     const source = normalizedSources[venue];
     const metrics = source.unavailable
       ? emptyMetrics()
-      : { ...computeMetrics(source.rawFills, source.portfolioPnl, timezoneOffsetMinutes, source.portfolioVolume), historyLimited: source.historyLimited, generatedAt: Date.now() };
+      : { ...computeMetrics(source.rawFills, source.portfolioPnl, timezoneOffsetMinutes, source.portfolioVolume, moonBoundaries), historyLimited: source.historyLimited, generatedAt: Date.now() };
     return { venue, active: !source.unavailable && source.rawFills.length > 0, metrics, ...(source.unavailable ? { unavailable: true } : {}) };
   };
   const hyperliquid = metricFor("hyperliquid");
@@ -64,7 +66,7 @@ export function buildMultiVenueMetrics(
   const pnlValues = readySources.map((source) => source.portfolioPnl).filter((value): value is number => value != null);
   const combinedVolume = readySources.reduce((sum, source) => sum + (source.portfolioVolume ?? source.rawFills.reduce((venueSum, fill) => venueSum + Number(fill.px) * Number(fill.sz), 0)), 0);
   const combined = {
-    ...computeMetrics(allFills, pnlValues.length ? pnlValues.reduce((sum, value) => sum + value, 0) : null, timezoneOffsetMinutes, combinedVolume),
+    ...computeMetrics(allFills, pnlValues.length ? pnlValues.reduce((sum, value) => sum + value, 0) : null, timezoneOffsetMinutes, combinedVolume, moonBoundaries),
     historyLimited: readySources.some((source) => source.historyLimited),
     generatedAt: Date.now(),
   };

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { FlatlineMark } from "@/components/brand/flatline-mark";
 import { MindsetChannelPrompt } from "@/components/brand/mindset-channel-prompt";
+import { MoonCyclePerformance } from "@/components/report/moon-cycle-performance";
 import type { ReportMetrics } from "@/lib/hyperliquid/metrics";
 import type { MultiVenueMetrics, VenueName } from "@/lib/report/multi-venue";
 
@@ -646,6 +647,7 @@ function ReportResult({
       </article>
       <ReportVisuals metrics={metrics} onRefresh={onRefresh} />
       <TradingRhythm metrics={metrics} />
+      <MoonCyclePerformance performance={metrics.moonPerformance} onRefresh={onRefresh} />
       {supportingFindings.length > 0 && (
         <article className="report-entry-card report-observations">
           <header>

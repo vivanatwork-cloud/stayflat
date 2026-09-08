@@ -9,6 +9,7 @@ import { parseBatchWallets } from "@/lib/report/batch-input";
 import { fetchWalletVenueSources, LighterTokenRequiredError } from "@/lib/report/fetch-wallet";
 import { buildMultiVenueMetrics, mergeVenueSources } from "@/lib/report/multi-venue";
 import { requestedWalletVenues } from "@/lib/report/venue-selection";
+import { moonPhaseBoundaries } from "@/lib/moon/phases";
 
 export const maxDuration = 120;
 
@@ -51,15 +52,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `We couldn't read ${failed.map(shortAddress).join(", ")}. No wallet was omitted or saved.` }, { status: 502 });
 
     const sources = settled.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+    let earliestFill = Number.POSITIVE_INFINITY;
+    let latestFill = Number.NEGATIVE_INFINITY;
+    for (const source of sources) {
+      for (const venue of [source.hyperliquid, source.arcus, source.lighter]) {
+        for (const fill of venue.rawFills) {
+          const time = Number(fill.time);
+          if (!Number.isFinite(time)) continue;
+          earliestFill = Math.min(earliestFill, time);
+          latestFill = Math.max(latestFill, time);
+        }
+      }
+    }
+    const boundaries = Number.isFinite(earliestFill) ? moonPhaseBoundaries(earliestFill, latestFill) : [];
     const walletReports = wallets.map((wallet, index) => ({
       address: wallet.address,
-      report: buildMultiVenueMetrics(sources[index], offset),
+      report: buildMultiVenueMetrics(sources[index], offset, boundaries),
     }));
     const combined = buildMultiVenueMetrics({
       hyperliquid: mergeVenueSources(sources.map((source) => source.hyperliquid)),
       arcus: mergeVenueSources(sources.map((source) => source.arcus)),
       lighter: mergeVenueSources(sources.map((source) => source.lighter)),
-    }, offset);
+    }, offset, boundaries);
     const convex = new ConvexHttpClient(convexUrl);
     await convex.mutation(api.payments.recordReportBatch, {
       writeSecret,

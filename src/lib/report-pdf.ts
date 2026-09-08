@@ -53,6 +53,17 @@ export function reportPdfVenueRows(report?: MultiVenueMetrics) {
   });
 }
 
+export function reportPdfMoonRows(metrics: FilledMetrics) {
+  const moon = metrics.moonPerformance;
+  if (!moon) return [] as [string, string][];
+  const period = (value: typeof moon.newMoon) => `${money(value.pnl)} net | ${value.winRate == null ? "-" : `${Math.round(value.winRate * 100)}% wins`} | ${value.positions} positions`;
+  return [
+    ["New Moon period", period(moon.newMoon)],
+    ["Full Moon period", period(moon.fullMoon)],
+    ["Comparison", !moon.comparisonReady ? "Not enough positions for a reliable comparison" : moon.betterPeriod === "tie" ? "Same net result" : `${moon.betterPeriod === "new" ? "New Moon" : "Full Moon"} period performed better`],
+  ] as [string, string][];
+}
+
 function fitText(text: string, font: PDFFont, size: number, width: number) {
   if (font.widthOfTextAtSize(text, size) <= width) return text;
   let value = text;
@@ -107,6 +118,13 @@ export async function buildReportPdf({ address, addresses, metrics, report, acco
   for (const [label, value] of reportPdfRows(metrics).slice(0, 10)) row(label, value);
   heading("Trading rhythm");
   for (const [label, value] of reportPdfRows(metrics).slice(10)) row(label, value);
+
+  if (metrics.moonPerformance) {
+    heading("Moon-cycle performance");
+    for (const [label, value] of reportPdfMoonRows(metrics)) row(label, value);
+    row("Method", "Position close time | new moon to full moon, then full moon to new moon");
+    row("Important", "Observed timing pattern, not evidence that moon phases caused the result");
+  }
 
   heading("More observations");
   row("Size after a loss", metrics.revengeRatio == null ? "-" : `${metrics.revengeRatio.toFixed(1)}x median fill size`);

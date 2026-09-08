@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PDFDocument } from "pdf-lib";
-import { buildReportPdf, reportPdfRows, reportPdfVenueRows } from "./report-pdf";
+import { buildReportPdf, reportPdfMoonRows, reportPdfRows, reportPdfVenueRows } from "./report-pdf";
 import { buildMultiVenueMetrics } from "./report/multi-venue";
 import type { ReportMetrics } from "./hyperliquid/metrics";
 
@@ -13,6 +13,11 @@ const metrics = {
   feeMultiple: .04, lossShare: .5, lossCount: 8, positionCount: 12, longestWinStreak: 3,
   longestLossStreak: 2, avgTradeDurationMinutes: 90, totalPerpsVolume: 125000,
   bestAsset: { coin: "BTC", pnl: 300 }, worstAsset: { coin: "ETH", pnl: -90 },
+  moonPerformance: {
+    newMoon: { pnl: 300, positions: 6, wins: 4, losses: 2, winRate: 4 / 6, averagePnl: 50 },
+    fullMoon: { pnl: 120, positions: 6, wins: 3, losses: 3, winRate: .5, averagePnl: 20 },
+    comparisonReady: true, betterPeriod: "new",
+  },
 } satisfies ReportMetrics;
 
 describe("report PDF", () => {
@@ -22,6 +27,11 @@ describe("report PDF", () => {
     expect(rows).toContainEqual(["Best entry window", "09:00-12:00"]);
     expect(rows).toContainEqual(["Best asset", "BTC | $300"]);
     expect(rows).toContainEqual(["Largest asset drag", "ETH | -$90"]);
+  });
+
+  it("includes moon-cycle performance", () => {
+    expect(reportPdfMoonRows(metrics)).toContainEqual(["New Moon period", "$300 net | 67% wins | 6 positions"]);
+    expect(reportPdfMoonRows(metrics)).toContainEqual(["Comparison", "New Moon period performed better"]);
   });
 
   it("creates a readable, paginated PDF", async () => {

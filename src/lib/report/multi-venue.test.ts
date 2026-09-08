@@ -100,4 +100,19 @@ describe("buildMultiVenueMetrics", () => {
       expect(result.combined.perpPnl).toBe(12);
     }
   });
+
+  it("applies the same moon boundaries to venue and combined results", () => {
+    const result = buildMultiVenueMetrics({
+      hyperliquid: { rawFills: pair("hyperliquid", 10, 1_100), portfolioPnl: 10, historyLimited: false },
+      arcus: { rawFills: pair("arcus", -5, 2_100), portfolioPnl: -5, historyLimited: false },
+    }, 0, [
+      { phase: "new", occursAt: 1_000 },
+      { phase: "full", occursAt: 2_000 },
+      { phase: "new", occursAt: 3_000 },
+    ]);
+    expect(result.hyperliquid.metrics.moonPerformance?.newMoon.positions).toBe(1);
+    expect(result.arcus.metrics.moonPerformance?.fullMoon.positions).toBe(1);
+    expect(result.combined.moonPerformance?.newMoon.pnl).toBe(10);
+    expect(result.combined.moonPerformance?.fullMoon.pnl).toBe(-5);
+  });
 });

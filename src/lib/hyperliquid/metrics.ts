@@ -31,6 +31,7 @@ export type EntryTypeMetrics = {
 export type ReportSeriesPoint = { time: number; value: number };
 export type ReportDay = { date: string; pnl: number; positions: number };
 export type WeekdayNet = { day: string; net: number };
+import { computeMoonPerformance, type MoonPerformance, type MoonPhaseBoundary } from "../moon/performance";
 type SnapshotFields = {
   generatedAt?: number;
   historyLimited?: boolean;
@@ -54,6 +55,7 @@ type SnapshotFields = {
   busyDayDate?: string | null;
   bestAsset?: { coin: string; pnl: number } | null;
   worstAsset?: { coin: string; pnl: number } | null;
+  moonPerformance?: MoonPerformance;
 };
 export type ReportMetrics = SnapshotFields & (
   | { empty: true }
@@ -101,7 +103,7 @@ type Fill = {
   crossed: boolean;
   notional: number;
 };
-type Position = {
+export type Position = {
   coin: string;
   direction: "long" | "short";
   openedAt: number;
@@ -229,7 +231,7 @@ export function reconstructPositions(fills: Fill[]) {
   return completed.toSorted((a, b) => a.closedAt - b.closedAt);
 }
 
-export function computeMetrics(rawFills: RawFill[], portfolioPnl: number | null, timezoneOffsetMinutes = 0, portfolioVolume?: number | null): ReportMetrics {
+export function computeMetrics(rawFills: RawFill[], portfolioPnl: number | null, timezoneOffsetMinutes = 0, portfolioVolume?: number | null, moonBoundaries: MoonPhaseBoundary[] = []): ReportMetrics {
   const fills = normalizeFills(rawFills);
   if (!fills.length) return { empty: true, positionCount: 0, confidence: "low", cumulativePnl: [], dailyPnl: [] };
   const positions = reconstructPositions(fills);
@@ -376,6 +378,7 @@ export function computeMetrics(rawFills: RawFill[], portfolioPnl: number | null,
   const positionCount = positions.length;
   const confidence = positionCount >= 30 ? "high" : positionCount >= 10 ? "medium" : "low";
   const netPnl = realizedPnl;
+  const moonPerformance = moonBoundaries.length ? computeMoonPerformance(positions, moonBoundaries) : undefined;
 
   return {
     empty: false,
@@ -422,5 +425,6 @@ export function computeMetrics(rawFills: RawFill[], portfolioPnl: number | null,
     feeMultiple: netPnl !== 0 ? fees / Math.abs(netPnl) : null,
     lossShare,
     lossCount: lossPnls.length,
+    ...(moonPerformance ? { moonPerformance } : {}),
   };
 }
