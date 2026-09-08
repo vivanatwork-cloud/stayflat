@@ -42,10 +42,12 @@ export function reportPdfRows(metrics: FilledMetrics) {
 
 export function reportPdfVenueRows(report?: MultiVenueMetrics) {
   if (!report) return [] as [string, string][];
-  return report.activeVenues.map((venue): [string, string] => {
-    const metrics = report[venue].metrics;
-    const label = venue === "hyperliquid" ? "Hyperliquid" : "Arcus";
-    return [label, metrics.empty ? "No active fills" : `${metrics.fillCount} fills | ${money(metrics.perpPnl)} all-time P&L`];
+  return report.activeVenues.flatMap((venue): [string, string][] => {
+    const snapshot = report[venue];
+    if (!snapshot) return [];
+    const metrics = snapshot.metrics;
+    const label = venue === "hyperliquid" ? "Hyperliquid" : venue === "arcus" ? "Arcus" : "Lighter";
+    return [[label, metrics.empty ? "No active fills" : `${metrics.fillCount} fills | ${money(metrics.perpPnl)} all-time P&L`]];
   });
 }
 
@@ -91,8 +93,9 @@ export async function buildReportPdf({ address, metrics, report, accountEmail }:
   y -= 38;
 
   heading("Report summary");
-  if (report?.activeVenues.length === 2) {
-    row("View", "Combined | Hyperliquid + Arcus");
+  if (report && report.activeVenues.length >= 2) {
+    const venueNames = report.activeVenues.map((venue) => venue === "hyperliquid" ? "Hyperliquid" : venue === "arcus" ? "Arcus" : "Lighter");
+    row("View", `Combined | ${venueNames.join(" + ")}`);
     for (const [label, value] of reportPdfVenueRows(report)) row(label, value);
   }
   for (const [label, value] of reportPdfRows(metrics).slice(0, 10)) row(label, value);

@@ -1,6 +1,6 @@
 import { computeMetrics, type RawFill, type ReportMetrics } from "../hyperliquid/metrics";
 
-export type VenueName = "hyperliquid" | "arcus";
+export type VenueName = "hyperliquid" | "arcus" | "lighter";
 export type VenueSnapshot = {
   venue: VenueName;
   active: boolean;
@@ -11,6 +11,7 @@ export type MultiVenueMetrics = {
   combined: ReportMetrics;
   hyperliquid: VenueSnapshot;
   arcus: VenueSnapshot;
+  lighter?: VenueSnapshot;
   activeVenues: VenueName[];
 };
 export type VenueSource = {
@@ -23,11 +24,16 @@ export type VenueSource = {
 const emptyMetrics = (): ReportMetrics => computeMetrics([], null);
 
 export function buildMultiVenueMetrics(
-  sources: { hyperliquid: VenueSource; arcus: VenueSource },
+  sources: { hyperliquid: VenueSource; arcus: VenueSource; lighter?: VenueSource },
   timezoneOffsetMinutes = 0,
 ): MultiVenueMetrics {
+  const normalizedSources: Record<VenueName, VenueSource> = {
+    hyperliquid: sources.hyperliquid,
+    arcus: sources.arcus,
+    lighter: sources.lighter ?? { rawFills: [], portfolioPnl: null, historyLimited: false, unavailable: true },
+  };
   const metricFor = (venue: VenueName) => {
-    const source = sources[venue];
+    const source = normalizedSources[venue];
     const metrics = source.unavailable
       ? emptyMetrics()
       : { ...computeMetrics(source.rawFills, source.portfolioPnl, timezoneOffsetMinutes), historyLimited: source.historyLimited, generatedAt: Date.now() };
@@ -35,8 +41,10 @@ export function buildMultiVenueMetrics(
   };
   const hyperliquid = metricFor("hyperliquid");
   const arcus = metricFor("arcus");
-  const activeVenues = (["hyperliquid", "arcus"] as const).filter((venue) => venue === "hyperliquid" ? hyperliquid.active : arcus.active);
-  const readySources = activeVenues.map((venue) => sources[venue]);
+  const lighter = metricFor("lighter");
+  const snapshots = { hyperliquid, arcus, lighter };
+  const activeVenues = (["hyperliquid", "arcus", "lighter"] as const).filter((venue) => snapshots[venue].active);
+  const readySources = activeVenues.map((venue) => normalizedSources[venue]);
   const allFills = readySources.flatMap((source) => source.rawFills).toSorted((a, b) => Number(a.time) - Number(b.time));
   const pnlValues = readySources.map((source) => source.portfolioPnl).filter((value): value is number => value != null);
   const combined = {
@@ -44,7 +52,7 @@ export function buildMultiVenueMetrics(
     historyLimited: readySources.some((source) => source.historyLimited),
     generatedAt: Date.now(),
   };
-  return { combined, hyperliquid, arcus, activeVenues };
+  return { combined, hyperliquid, arcus, lighter, activeVenues };
 }
 
 export function legacyMultiVenueMetrics(metrics: ReportMetrics): MultiVenueMetrics {
@@ -52,6 +60,7 @@ export function legacyMultiVenueMetrics(metrics: ReportMetrics): MultiVenueMetri
     combined: metrics,
     hyperliquid: { venue: "hyperliquid", active: !metrics.empty, metrics },
     arcus: { venue: "arcus", active: false, unavailable: true, metrics: emptyMetrics() },
+    lighter: { venue: "lighter", active: false, unavailable: true, metrics: emptyMetrics() },
     activeVenues: metrics.empty ? [] : ["hyperliquid"],
   };
 }

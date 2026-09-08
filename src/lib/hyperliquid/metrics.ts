@@ -1,5 +1,5 @@
 export type RawFill = {
-  venue?: "hyperliquid" | "arcus";
+  venue?: "hyperliquid" | "arcus" | "lighter";
   time: number | string;
   px: string;
   sz: string;
@@ -85,7 +85,7 @@ export type ReportMetrics = SnapshotFields & (
 );
 
 type Fill = {
-  venue: "hyperliquid" | "arcus";
+  venue: "hyperliquid" | "arcus" | "lighter";
   time: number;
   price: number;
   size: number;

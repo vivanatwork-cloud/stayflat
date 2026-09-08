@@ -57,9 +57,13 @@ function historySummary(item: HistoryItem) {
 export function WalletReport({ initialAccess, initialReport = null, initialAddress = "", initialHistory = [] }: { initialAccess: Access; initialReport?: ReportResponse | null; initialAddress?: string; initialHistory?: HistoryItem[] }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  const lighterTokenRef = useRef<HTMLInputElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
   const requestRef = useRef<AbortController | null>(null);
   const [address, setAddress] = useState(initialAddress);
+  const [lighterToken, setLighterToken] = useState("");
+  const [lighterTokenVisible, setLighterTokenVisible] = useState(false);
+  const [lighterTokenNeeded, setLighterTokenNeeded] = useState(false);
   const [report, setReport] = useState<ReportResponse | null>(initialReport);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
@@ -90,12 +94,20 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
       const response = await fetch("/api/report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: value, timezoneOffsetMinutes: new Date().getTimezoneOffset() }),
+        body: JSON.stringify({
+          address: value,
+          timezoneOffsetMinutes: new Date().getTimezoneOffset(),
+          ...(lighterToken.trim() ? { lighterToken: lighterToken.trim() } : {}),
+        }),
         signal: controller.signal,
       });
       const data = await response.json().catch(() => null) as ReportResponse & { error?: string; code?: string } | null;
       if (!response.ok) {
         if (data?.code === "REPORT_LIMIT_REACHED") setLimitReached(true);
+        if (data?.code === "LIGHTER_TOKEN_REQUIRED" || data?.code === "LIGHTER_TOKEN_INVALID") {
+          setLighterTokenNeeded(true);
+          window.setTimeout(() => lighterTokenRef.current?.focus(), 0);
+        }
         throw new Error(data?.error || "We couldn't generate the report. Try again.");
       }
       if (!data) throw new Error("We couldn't generate the report. Try again.");
@@ -145,6 +157,8 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
     requestRef.current?.abort();
     setReport(null);
     setAddress("");
+    setLighterToken("");
+    setLighterTokenNeeded(false);
     setStatus("idle");
     setError("");
     router.replace("/report");
@@ -171,40 +185,77 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
         One wallet. <em>Every supported perp venue.</em>
       </h1>
       <p className="report-sub">
-        Paste one address to read its Hyperliquid and Arcus history together.
-        If it trades on both, you&apos;ll also get a combined view.
+        Paste one address to read its Hyperliquid, Arcus, and Lighter history together.
+        If it trades across venues, you&apos;ll also get a combined view.
       </p>
       <div className="report-allowance" aria-label="Wallet report usage">
         <strong>{access.used} of {access.limit}</strong>
         <span>wallet slots used</span>
       </div>
-      <form className="report-address-row" onSubmit={submit} noValidate>
-        <label className="sr-only" htmlFor="wallet-address">Wallet address</label>
-        <input
-          ref={inputRef}
-          id="wallet-address"
-          value={address}
-          onChange={(event) => {
-            setAddress(event.target.value);
-            if (error) setError("");
-          }}
-          spellCheck={false}
-          autoComplete="off"
-          autoCapitalize="none"
-          placeholder="0x… your wallet address"
-          aria-describedby={`wallet-help${error ? " wallet-error" : ""}`}
-          aria-invalid={Boolean(error)}
-          disabled={status === "loading"}
-        />
-        <button type="submit" disabled={status === "loading" || newAddressBlocked}>
-          {status === "loading" ? "Reading both venues…" : "Read my trading"}
-        </button>
+      <form className="report-wallet-form" onSubmit={submit} noValidate>
+        <div className="report-address-row">
+          <label className="sr-only" htmlFor="wallet-address">Wallet address</label>
+          <input
+            ref={inputRef}
+            id="wallet-address"
+            value={address}
+            onChange={(event) => {
+              setAddress(event.target.value);
+              if (error) setError("");
+            }}
+            spellCheck={false}
+            autoComplete="off"
+            autoCapitalize="none"
+            placeholder="0x… your wallet address"
+            aria-describedby={`wallet-help${error ? " wallet-error" : ""}`}
+            aria-invalid={Boolean(error)}
+            disabled={status === "loading"}
+          />
+          <button type="submit" disabled={status === "loading" || newAddressBlocked}>
+            {status === "loading" ? "Reading venues…" : "Read my trading"}
+          </button>
+        </div>
+        <details className="report-lighter-access" open={lighterTokenNeeded} onToggle={(event) => setLighterTokenNeeded(event.currentTarget.open)}>
+          <summary>
+            <span><i aria-hidden="true" /> Add Lighter history</span>
+            <small>Read-only token</small>
+          </summary>
+          <div className="report-lighter-access-body">
+            <div>
+              <label htmlFor="lighter-token">Lighter read-only token</label>
+              <p>Needed only when this wallet trades on Lighter. StayFlat uses it once and never saves it.</p>
+            </div>
+            <div className="report-token-row">
+              <input
+                ref={lighterTokenRef}
+                id="lighter-token"
+                type={lighterTokenVisible ? "text" : "password"}
+                value={lighterToken}
+                onChange={(event) => {
+                  setLighterToken(event.target.value);
+                  if (error) setError("");
+                }}
+                placeholder="ro:…"
+                spellCheck={false}
+                autoComplete="off"
+                aria-describedby="lighter-token-help"
+                disabled={status === "loading"}
+              />
+              <button type="button" onClick={() => setLighterTokenVisible((visible) => !visible)} aria-label={`${lighterTokenVisible ? "Hide" : "Show"} Lighter token`}>
+                {lighterTokenVisible ? "Hide" : "Show"}
+              </button>
+            </div>
+            <p id="lighter-token-help" className="report-token-help">
+              Generate it on <a href="https://app.lighter.xyz/apikeys" target="_blank" rel="noreferrer">Lighter <span aria-hidden="true">↗</span></a>. Read-only tokens cannot trade or withdraw.
+            </p>
+          </div>
+        </details>
       </form>
       <p className="sr-only" aria-live="polite">{announcement}</p>
       {status === "loading" && <ReportLoading onCancel={() => requestRef.current?.abort()} />}
       {error && <p ref={errorRef} tabIndex={-1} className="report-error" id="wallet-error" role="alert">{error}</p>}
       <p className="report-fineprint" id="wallet-help">
-        One wallet uses one slot. StayFlat reads public Hyperliquid and Arcus data and can&apos;t touch your funds.
+        One wallet uses one slot. StayFlat reads public venue data and can&apos;t touch your funds.
       </p>
       <div className="report-options">
         {newAddressBlocked && (
@@ -275,12 +326,13 @@ function ReportResult({
   error: string;
   readyKey: number;
 }) {
-  const hasBoth = report.report.activeVenues.length === 2;
-  const initialVenue: "combined" | VenueName = hasBoth ? "combined" : (report.report.activeVenues[0] ?? "combined");
+  const hasCombined = report.report.activeVenues.length >= 2;
+  const initialVenue: "combined" | VenueName = hasCombined ? "combined" : (report.report.activeVenues[0] ?? "combined");
   const [selectedVenue, setSelectedVenue] = useState<"combined" | VenueName>(initialVenue);
-  const visibleVenue = selectedVenue === "combined" && !hasBoth ? initialVenue : selectedVenue;
-  const metrics = visibleVenue === "combined" ? report.report.combined : report.report[visibleVenue].metrics;
-  const venueLabel = visibleVenue === "combined" ? "Combined" : visibleVenue === "hyperliquid" ? "Hyperliquid" : "Arcus";
+  const visibleVenue = selectedVenue === "combined" && !hasCombined ? initialVenue : selectedVenue;
+  const venueSnapshot = visibleVenue === "combined" ? null : report.report[visibleVenue];
+  const metrics = visibleVenue === "combined" ? report.report.combined : (venueSnapshot?.metrics ?? report.report.combined);
+  const venueLabel = visibleVenue === "combined" ? "Combined" : visibleVenue === "hyperliquid" ? "Hyperliquid" : visibleVenue === "arcus" ? "Arcus" : "Lighter";
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     if (readyKey > 0) headingRef.current?.focus();
@@ -293,8 +345,8 @@ function ReportResult({
           We couldn&apos;t find active perpetual fills for that address.
         </h1>
         <p>
-          Check the address or try the wallet that actually trades perps. Master
-          Only venues where this address has perp access and trading activity appear in the report.
+          Check the address or try the wallet that actually trades perps. Only
+          venues where this address has perp access and trading activity appear in the report.
         </p>
         <button className="report-link-button" onClick={onReset}>
           Try another address
@@ -371,9 +423,10 @@ function ReportResult({
   return (
     <section className="report-results">
       <nav className="report-venue-rail" aria-label="Report venue">
-        {hasBoth ? <button type="button" data-venue="combined" aria-current={visibleVenue === "combined" ? "page" : undefined} onClick={() => setSelectedVenue("combined")}><span />Combined</button> : null}
+        {hasCombined ? <button type="button" data-venue="combined" aria-current={visibleVenue === "combined" ? "page" : undefined} onClick={() => setSelectedVenue("combined")}><span />Combined</button> : null}
         {report.report.hyperliquid.active ? <button type="button" data-venue="hyperliquid" aria-current={visibleVenue === "hyperliquid" ? "page" : undefined} onClick={() => setSelectedVenue("hyperliquid")}><span />Hyperliquid</button> : null}
         {report.report.arcus.active ? <button type="button" data-venue="arcus" aria-current={visibleVenue === "arcus" ? "page" : undefined} onClick={() => setSelectedVenue("arcus")}><span />Arcus</button> : null}
+        {report.report.lighter?.active ? <button type="button" data-venue="lighter" aria-current={visibleVenue === "lighter" ? "page" : undefined} onClick={() => setSelectedVenue("lighter")}><span />Lighter</button> : null}
       </nav>
       <header className="report-result-intro">
         <p className="report-eyebrow">{venueLabel} read</p>

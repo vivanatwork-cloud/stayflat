@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { RawFill } from "@/lib/hyperliquid/metrics";
 import { buildMultiVenueMetrics } from "./multi-venue";
 
-const pair = (venue: "hyperliquid" | "arcus", pnl: number, time: number): RawFill[] => [
+const pair = (venue: "hyperliquid" | "arcus" | "lighter", pnl: number, time: number): RawFill[] => [
   { venue, time, px: "100", sz: "1", closedPnl: "0", fee: "0", coin: "BTC", tid: `${venue}-open`, side: "B", dir: "Open Long", crossed: true },
   { venue, time: time + 1, px: "100", sz: "1", closedPnl: String(pnl), fee: "0", coin: "BTC", tid: `${venue}-close`, side: "A", dir: "Close Long", crossed: true },
 ];
@@ -12,6 +12,7 @@ describe("buildMultiVenueMetrics", () => {
     const result = buildMultiVenueMetrics({
       hyperliquid: { rawFills: pair("hyperliquid", 10, 1), portfolioPnl: 10, historyLimited: false },
       arcus: { rawFills: pair("arcus", -5, 2), portfolioPnl: -5, historyLimited: false },
+      lighter: { rawFills: [], portfolioPnl: null, historyLimited: false },
     });
     expect(result.activeVenues).toEqual(["hyperliquid", "arcus"]);
     expect(result.combined.empty).toBe(false);
@@ -26,8 +27,33 @@ describe("buildMultiVenueMetrics", () => {
     const result = buildMultiVenueMetrics({
       hyperliquid: { rawFills: pair("hyperliquid", 10, 1), portfolioPnl: 10, historyLimited: false },
       arcus: { rawFills: [], portfolioPnl: null, historyLimited: false, unavailable: true },
+      lighter: { rawFills: [], portfolioPnl: null, historyLimited: false, unavailable: true },
     });
     expect(result.activeVenues).toEqual(["hyperliquid"]);
     expect(result.arcus.active).toBe(false);
+  });
+
+  it("supports Lighter-only reports", () => {
+    const result = buildMultiVenueMetrics({
+      hyperliquid: { rawFills: [], portfolioPnl: null, historyLimited: false },
+      arcus: { rawFills: [], portfolioPnl: null, historyLimited: false },
+      lighter: { rawFills: pair("lighter", 7, 3), portfolioPnl: 7, historyLimited: false },
+    });
+    expect(result.activeVenues).toEqual(["lighter"]);
+    expect(result.lighter?.active).toBe(true);
+  });
+
+  it("recomputes combined metrics across all three venues", () => {
+    const result = buildMultiVenueMetrics({
+      hyperliquid: { rawFills: pair("hyperliquid", 10, 1), portfolioPnl: 10, historyLimited: false },
+      arcus: { rawFills: pair("arcus", -5, 2), portfolioPnl: -5, historyLimited: false },
+      lighter: { rawFills: pair("lighter", 7, 3), portfolioPnl: 7, historyLimited: false },
+    });
+    expect(result.activeVenues).toEqual(["hyperliquid", "arcus", "lighter"]);
+    expect(result.combined.empty).toBe(false);
+    if (!result.combined.empty) {
+      expect(result.combined.positionCount).toBe(3);
+      expect(result.combined.perpPnl).toBe(12);
+    }
   });
 });

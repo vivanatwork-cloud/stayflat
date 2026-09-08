@@ -70,7 +70,7 @@ export const reportMetricsValidator = v.union(
   }),
 );
 
-export const venueNameValidator = v.union(v.literal("hyperliquid"), v.literal("arcus"));
+export const venueNameValidator = v.union(v.literal("hyperliquid"), v.literal("arcus"), v.literal("lighter"));
 export const venueSnapshotValidator = v.object({
   venue: venueNameValidator,
   active: v.boolean(),
@@ -81,5 +81,6 @@ export const multiVenueMetricsValidator = v.object({
   combined: reportMetricsValidator,
   hyperliquid: venueSnapshotValidator,
   arcus: venueSnapshotValidator,
+  lighter: v.optional(venueSnapshotValidator),
   activeVenues: v.array(venueNameValidator),
 });

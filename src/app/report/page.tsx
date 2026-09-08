@@ -14,7 +14,7 @@ import { legacyMultiVenueMetrics } from "@/lib/report/multi-venue";
 export const metadata: Metadata = {
   title: "Multi-venue Trading Read",
   description:
-    "Read one wallet's Hyperliquid and Arcus perpetual trading history, separately and together.",
+    "Read one wallet's Hyperliquid, Arcus, and Lighter perpetual trading history, separately and together.",
 };
 
 export default async function Report({ searchParams }: { searchParams: Promise<{ address?: string }> }) {
