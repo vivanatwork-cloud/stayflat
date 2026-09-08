@@ -19,11 +19,13 @@ describe("moon performance", () => {
 
   it("calculates net results and requires five positions in each period", () => {
     const positions = [
-      ...Array.from({ length: 5 }, (_, index) => position(1_100 + index, 10, 1)),
+      ...Array.from({ length: 5 }, (_, index) => ({ ...position(1_100 + index, 10, 1), direction: index < 3 ? "long" as const : "short" as const })),
       ...Array.from({ length: 5 }, (_, index) => position(2_100 + index, index ? -2 : 6, 1)),
     ];
     const result = computeMoonPerformance(positions, boundaries);
     expect(result.newMoon).toMatchObject({ pnl: 45, positions: 5, wins: 5, losses: 0, winRate: 1, averagePnl: 9 });
+    expect(result.newMoon.longPnl).toBe(27);
+    expect(result.newMoon.shortPnl).toBe(18);
     expect(result.fullMoon.positions).toBe(5);
     expect(result.comparisonReady).toBe(true);
     expect(result.betterPeriod).toBe("new");

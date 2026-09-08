@@ -21,6 +21,8 @@ const moonPeriodValidator = v.object({
   losses: v.number(),
   winRate: v.union(v.number(), v.null()),
   averagePnl: v.union(v.number(), v.null()),
+  longPnl: v.optional(v.number()),
+  shortPnl: v.optional(v.number()),
 });
 const moonPerformanceValidator = v.object({
   newMoon: moonPeriodValidator,

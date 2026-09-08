@@ -1,6 +1,6 @@
 import type { MoonPerformance, MoonPeriodMetrics } from "@/lib/moon/performance";
 
-const money = (value: number | null) => value == null ? "—" : new Intl.NumberFormat("en-US", {
+const money = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat("en-US", {
   style: "currency", currency: "USD", maximumFractionDigits: 2,
 }).format(value);
 
@@ -11,6 +11,8 @@ function Period({ name, note, metrics, moon }: { name: string; note: string; met
       <strong className={metrics.pnl < 0 ? "negative" : metrics.pnl > 0 ? "positive" : undefined}>{money(metrics.pnl)}</strong>
       <span>Net realized P&L</span>
       <dl>
+        <div><dt>Long net P&L</dt><dd className={metrics.longPnl != null && metrics.longPnl < 0 ? "negative" : metrics.longPnl != null && metrics.longPnl > 0 ? "positive" : undefined}>{money(metrics.longPnl)}</dd></div>
+        <div><dt>Short net P&L</dt><dd className={metrics.shortPnl != null && metrics.shortPnl < 0 ? "negative" : metrics.shortPnl != null && metrics.shortPnl > 0 ? "positive" : undefined}>{money(metrics.shortPnl)}</dd></div>
         <div><dt>Win rate</dt><dd>{metrics.winRate == null ? "—" : `${Math.round(metrics.winRate * 100)}%`}</dd></div>
         <div><dt>Average position</dt><dd>{money(metrics.averagePnl)}</dd></div>
         <div><dt>Completed positions</dt><dd>{metrics.positions}</dd></div>

@@ -14,8 +14,8 @@ const metrics = {
   longestLossStreak: 2, avgTradeDurationMinutes: 90, totalPerpsVolume: 125000,
   bestAsset: { coin: "BTC", pnl: 300 }, worstAsset: { coin: "ETH", pnl: -90 },
   moonPerformance: {
-    newMoon: { pnl: 300, positions: 6, wins: 4, losses: 2, winRate: 4 / 6, averagePnl: 50 },
-    fullMoon: { pnl: 120, positions: 6, wins: 3, losses: 3, winRate: .5, averagePnl: 20 },
+    newMoon: { pnl: 300, positions: 6, wins: 4, losses: 2, winRate: 4 / 6, averagePnl: 50, longPnl: 220, shortPnl: 80 },
+    fullMoon: { pnl: 120, positions: 6, wins: 3, losses: 3, winRate: .5, averagePnl: 20, longPnl: -30, shortPnl: 150 },
     comparisonReady: true, betterPeriod: "new",
   },
 } satisfies ReportMetrics;
@@ -31,6 +31,7 @@ describe("report PDF", () => {
 
   it("includes moon-cycle performance", () => {
     expect(reportPdfMoonRows(metrics)).toContainEqual(["New Moon period", "$300 net | 67% wins | 6 positions"]);
+    expect(reportPdfMoonRows(metrics)).toContainEqual(["New Moon long / short", "$220 / $80"]);
     expect(reportPdfMoonRows(metrics)).toContainEqual(["Comparison", "New Moon period performed better"]);
   });
 

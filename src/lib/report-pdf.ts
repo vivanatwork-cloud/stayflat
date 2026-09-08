@@ -59,7 +59,9 @@ export function reportPdfMoonRows(metrics: FilledMetrics) {
   const period = (value: typeof moon.newMoon) => `${money(value.pnl)} net | ${value.winRate == null ? "-" : `${Math.round(value.winRate * 100)}% wins`} | ${value.positions} positions`;
   return [
     ["New Moon period", period(moon.newMoon)],
+    ["New Moon long / short", `${money(moon.newMoon.longPnl)} / ${money(moon.newMoon.shortPnl)}`],
     ["Full Moon period", period(moon.fullMoon)],
+    ["Full Moon long / short", `${money(moon.fullMoon.longPnl)} / ${money(moon.fullMoon.shortPnl)}`],
     ["Comparison", !moon.comparisonReady ? "Not enough positions for a reliable comparison" : moon.betterPeriod === "tie" ? "Same net result" : `${moon.betterPeriod === "new" ? "New Moon" : "Full Moon"} period performed better`],
   ] as [string, string][];
 }

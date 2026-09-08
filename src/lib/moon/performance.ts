@@ -8,6 +8,8 @@ export type MoonPeriodMetrics = {
   losses: number;
   winRate: number | null;
   averagePnl: number | null;
+  longPnl?: number;
+  shortPnl?: number;
 };
 export type MoonPerformance = {
   newMoon: MoonPeriodMetrics;
@@ -25,7 +27,7 @@ export function classifyMoonPeriod(timestamp: number, boundaries: MoonPhaseBound
   return result;
 }
 
-const emptyPeriod = (): MoonPeriodMetrics => ({ pnl: 0, positions: 0, wins: 0, losses: 0, winRate: null, averagePnl: null });
+const emptyPeriod = (): MoonPeriodMetrics => ({ pnl: 0, positions: 0, wins: 0, losses: 0, winRate: null, averagePnl: null, longPnl: 0, shortPnl: 0 });
 
 export function computeMoonPerformance(positions: Position[], boundaries: MoonPhaseBoundary[]): MoonPerformance {
   const newMoon = emptyPeriod();
@@ -36,6 +38,8 @@ export function computeMoonPerformance(positions: Position[], boundaries: MoonPh
     const bucket = phase === "new" ? newMoon : fullMoon;
     const pnl = position.pnl - position.fees;
     bucket.pnl += pnl;
+    if (position.direction === "long") bucket.longPnl = (bucket.longPnl ?? 0) + pnl;
+    else bucket.shortPnl = (bucket.shortPnl ?? 0) + pnl;
     bucket.positions += 1;
     if (pnl > 0) bucket.wins += 1;
     if (pnl < 0) bucket.losses += 1;
