@@ -24,6 +24,20 @@ const date = (value: number | null | undefined) =>
     ? new Intl.DateTimeFormat("en", { day: "numeric", month: "short", year: "numeric" }).format(value)
     : "—";
 
+const dateTimeIst = (value: number | null | undefined) =>
+  value
+    ? new Intl.DateTimeFormat("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+        timeZone: "Asia/Kolkata",
+        timeZoneName: "short",
+      }).format(value)
+    : "Never signed in";
+
 const money = (value: number | null | undefined) =>
   value == null
     ? "—"
@@ -152,7 +166,7 @@ export default async function AdminPage({
               <div className="admin-user-detail">
                 <article>
                   <h3>Account</h3>
-                  <dl><div><dt>Last sign-in</dt><dd>{date(record.lastSignInAt)}</dd></div><div><dt>Report access</dt><dd>{record.blocks.some((block) => block.unblockedAt == null) ? "Blocked" : "Free · unlimited"}</dd></div><div><dt>Onboarding</dt><dd>{record.onboarding?.completed ? "Complete" : record.onboarding ? `Step ${record.onboarding.step} of 9` : "Not started"}</dd></div></dl>
+                  <dl><div><dt>Last sign-in</dt><dd>{dateTimeIst(record.lastSignInAt)}</dd></div><div><dt>Report access</dt><dd>{record.blocks.some((block) => block.unblockedAt == null) ? "Blocked" : "Free · unlimited"}</dd></div><div><dt>Onboarding</dt><dd>{record.onboarding?.completed ? "Complete" : record.onboarding ? `Step ${record.onboarding.step} of 9` : "Not started"}</dd></div></dl>
                   {(() => {
                     const activeBlock = record.blocks.find((block) => block.unblockedAt == null);
                     return activeBlock ? <form action={unblockUser} className="admin-access-form"><input type="hidden" name="ownerId" value={record.id} /><p><strong>Blocked {date(activeBlock.blockedAt)}</strong><br />{activeBlock.reason}</p><button type="submit">Unblock report access</button></form> : <form action={blockUser} className="admin-access-form admin-access-form-danger"><input type="hidden" name="ownerId" value={record.id} /><label htmlFor={`block-reason-${record.id}`}>Reason for blocking</label><input id={`block-reason-${record.id}`} name="reason" required minLength={3} placeholder="Example: repeated automated requests" /><button type="submit">Block report generation</button><small>Saved reports remain visible. New reports and refreshes stop immediately.</small></form>;
