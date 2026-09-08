@@ -428,6 +428,7 @@ function ReportResult({
   if (metrics.empty)
     return (
       <section className="report-empty">
+        <button className="report-back-button" type="button" onClick={onReset}><span aria-hidden="true">←</span> Back to reports</button>
         <p className="report-eyebrow">No fills found</p>
         <h1>
           We couldn&apos;t find active perpetual fills for that address.
@@ -510,6 +511,7 @@ function ReportResult({
   const generatedAt = metrics.generatedAt ? date(metrics.generatedAt) : "Saved before freshness tracking";
   return (
     <section className="report-results">
+      <button className="report-back-button" type="button" onClick={onReset}><span aria-hidden="true">←</span> Back to reports</button>
       {hasWalletSwitcher ? <nav className="report-wallet-rail" aria-label="Report wallet">
         <button type="button" aria-current={selectedWallet === "all" ? "page" : undefined} onClick={() => { setSelectedWallet("all"); setSelectedVenue(report.report.activeVenues.length >= 2 ? "combined" : (report.report.activeVenues[0] ?? "combined")); }}>All wallets</button>
         {report.walletReports!.map((item, index) => <button type="button" key={item.address} aria-current={selectedWallet === item.address ? "page" : undefined} onClick={() => { setSelectedWallet(item.address); setSelectedVenue(item.report.activeVenues.length >= 2 ? "combined" : (item.report.activeVenues[0] ?? "combined")); }}>Wallet {index + 1} <small>{item.address.slice(0, 6)}…{item.address.slice(-4)}</small></button>)}
