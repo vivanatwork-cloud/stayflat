@@ -2680,6 +2680,9 @@ textarea {
 .feedback-group-actions a:focus-visible,
 .feedback-group-actions button:focus-visible,
 .feedback-group-close:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+.mindset-channel-dialog h2 { max-width: 14ch; }
+.mindset-channel-actions a { background: #167c4c; }
+.mindset-channel-actions a:hover { background: #11633d; }
 @media (max-width: 520px) {
   .feedback-group-dialog { padding: 26px 22px; }
   .feedback-group-dialog h2 { font-size: 27px; }

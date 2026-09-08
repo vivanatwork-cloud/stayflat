@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { FlatlineMark } from "@/components/brand/flatline-mark";
+import { MindsetChannelPrompt } from "@/components/brand/mindset-channel-prompt";
 import type { ReportMetrics } from "@/lib/hyperliquid/metrics";
 import type { MultiVenueMetrics, VenueName } from "@/lib/report/multi-venue";
 
@@ -244,6 +245,7 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
   }
 
   if (report) return <>
+    <MindsetChannelPrompt eligible />
     <p className="sr-only" aria-live="polite">{announcement}</p>
     <ReportResult
       report={report}
@@ -266,7 +268,9 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
   </>;
 
   return (
-    <section className="report-panel" aria-labelledby="report-title">
+    <>
+      <MindsetChannelPrompt eligible={history.length > 0} />
+      <section className="report-panel" aria-labelledby="report-title">
       <p className="report-eyebrow">Your report</p>
       <h1 id="report-title">
         Up to ten wallets. <em>One complete trading read.</em>
@@ -403,7 +407,8 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
           </div>
         </section>
       )}
-    </section>
+      </section>
+    </>
   );
 }
 
