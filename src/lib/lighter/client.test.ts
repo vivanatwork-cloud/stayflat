@@ -51,6 +51,7 @@ describe("fetchLighterReport", () => {
   });
 
   it("fetches all linked accounts, normalizes trades, and combines PnL", async () => {
+    const pnlRequests: URL[] = [];
     const fetcher = vi.fn(async (input: string | URL | Request) => {
       const url = new URL(String(input));
       if (url.pathname.endsWith("accountsByL1Address")) return Response.json({ code: 200, sub_accounts: [{ index: 1483, status: 1 }, { index: 1484, status: 1 }] });
@@ -59,12 +60,18 @@ describe("fetchLighterReport", () => {
         const accountIndex = Number(url.searchParams.get("account_index"));
         return Response.json({ code: 200, trades: [trade({ trade_id: accountIndex, ask_account_id: accountIndex })] });
       }
-      if (url.pathname.endsWith("/pnl")) return Response.json({ code: 200, pnl: [{ trade_pnl: Number(url.searchParams.get("value")) === 1483 ? 10 : 5 }] });
+      if (url.pathname.endsWith("/pnl")) {
+        pnlRequests.push(url);
+        const latestPnl = Number(url.searchParams.get("value")) === 1483 ? 10 : 5;
+        return Response.json({ code: 200, pnl: [{ timestamp: 200, trade_pnl: latestPnl }, { timestamp: 100, trade_pnl: 999 }] });
+      }
       return Response.json({ code: 404 }, { status: 404 });
     }) as unknown as typeof fetch;
     const result = await fetchLighterReport("0xabc", token, new AbortController().signal, fetcher);
     expect(result.rawFills).toHaveLength(2);
     expect(result.portfolioPnl).toBe(15);
     expect(result.active).toBe(true);
+    expect(pnlRequests).toHaveLength(2);
+    expect(pnlRequests.every((url) => url.searchParams.get("ignore_transfers") === "false")).toBe(true);
   });
 });

@@ -75,7 +75,7 @@ type TradesResponse = {
 type PnlResponse = {
   code: number;
   message?: string;
-  pnl?: { trade_pnl: number }[];
+  pnl?: { timestamp?: number; trade_pnl: number }[];
 };
 
 export type LighterAddressState = {
@@ -216,9 +216,13 @@ async function fetchAccountPnl(accountIndex: number, token: string, signal: Abor
   url.searchParams.set("start_timestamp", String(MAINNET_GENESIS_SECONDS));
   url.searchParams.set("end_timestamp", String(Math.floor(Date.now() / 1_000)));
   url.searchParams.set("count_back", "0");
-  url.searchParams.set("ignore_transfers", "true");
+  // Lighter's chart derives lifetime trading PnL from collateral flows. When
+  // transfers are ignored, the final point can instead equal current account
+  // equity (for example, a nearly empty account can appear close to $0 PnL).
+  url.searchParams.set("ignore_transfers", "false");
   const data = await getJson<PnlResponse>(url, signal, fetcher, token);
-  const value = Number(data.pnl?.at(-1)?.trade_pnl);
+  const latest = data.pnl?.toSorted((a, b) => Number(a.timestamp ?? 0) - Number(b.timestamp ?? 0)).at(-1);
+  const value = Number(latest?.trade_pnl);
   return Number.isFinite(value) ? value : null;
 }
 
