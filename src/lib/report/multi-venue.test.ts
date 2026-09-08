@@ -8,6 +8,25 @@ const pair = (venue: "hyperliquid" | "arcus" | "lighter", pnl: number, time: num
 ];
 
 describe("buildMultiVenueMetrics", () => {
+  it("uses an exchange's authoritative volume when its trade rows are incomplete", () => {
+    const result = buildMultiVenueMetrics({
+      hyperliquid: { rawFills: [], portfolioPnl: null, historyLimited: false, unavailable: true },
+      arcus: { rawFills: [], portfolioPnl: null, historyLimited: false, unavailable: true },
+      lighter: {
+        rawFills: pair("lighter", -25, 1),
+        portfolioPnl: -25,
+        portfolioVolume: 7_327_359.13,
+        historyLimited: true,
+      },
+    });
+
+    const lighterMetrics = result.lighter?.metrics;
+    expect(lighterMetrics?.empty).toBe(false);
+    if (lighterMetrics && !lighterMetrics.empty) expect(lighterMetrics.totalPerpsVolume).toBe(7_327_359.13);
+    expect(result.combined.empty).toBe(false);
+    if (!result.combined.empty) expect(result.combined.totalPerpsVolume).toBe(7_327_359.13);
+  });
+
   it("keeps same-market positions separate across venues and recomputes combined metrics", () => {
     const result = buildMultiVenueMetrics({
       hyperliquid: { rawFills: pair("hyperliquid", 10, 1), portfolioPnl: 10, historyLimited: false },

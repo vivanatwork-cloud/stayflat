@@ -92,7 +92,12 @@ export async function POST(request: Request) {
       ? { rawFills: arcusResult.value.rawFills, portfolioPnl: arcusResult.value.portfolioPnl, historyLimited: arcusResult.value.historyLimited }
       : unavailable();
     const lighter: VenueSource = trimmedLighterToken && lighterResult.status === "fulfilled" && "rawFills" in lighterResult.value
-      ? { rawFills: lighterResult.value.rawFills, portfolioPnl: lighterResult.value.portfolioPnl, historyLimited: lighterResult.value.historyLimited }
+      ? {
+          rawFills: lighterResult.value.rawFills,
+          portfolioPnl: lighterResult.value.portfolioPnl,
+          portfolioVolume: lighterResult.value.portfolioVolume,
+          historyLimited: lighterResult.value.historyLimited,
+        }
       : trimmedLighterToken && lighterResult.status === "rejected" ? unavailable() : { rawFills: [], portfolioPnl: null, historyLimited: false };
     if (hyperliquid.unavailable && arcus.unavailable && lighter.unavailable) throw new Error("All venues unavailable");
     const report = buildMultiVenueMetrics({ hyperliquid, arcus, lighter }, offset);
