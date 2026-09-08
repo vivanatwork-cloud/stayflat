@@ -1,7 +1,7 @@
 import type { RawFill } from "@/lib/hyperliquid/metrics";
 import { fetchArcusReport } from "@/lib/arcus/client";
-import { fetchLighterReport, inspectLighterAddress, LighterAuthError } from "@/lib/lighter/client";
-import type { VenueSource } from "@/lib/report/multi-venue";
+import { fetchLighterReport, LighterAuthError } from "@/lib/lighter/client";
+import type { VenueName, VenueSource } from "@/lib/report/multi-venue";
 
 const HYPERLIQUID_API = "https://api.hyperliquid.xyz/info";
 
@@ -64,30 +64,30 @@ const tagWallet = (source: VenueSource, wallet: string): VenueSource => ({
   rawFills: source.rawFills.map((fill) => ({ ...fill, wallet })),
 });
 
-export async function fetchWalletVenueSources(address: string, lighterToken: string, signal: AbortSignal) {
+export async function fetchWalletVenueSources(address: string, lighterToken: string, signal: AbortSignal, requestedVenues: readonly VenueName[]) {
   const normalizedAddress = address.toLowerCase();
+  const selected = new Set(requestedVenues);
+  if (selected.has("lighter") && !lighterToken) throw new LighterTokenRequiredError(normalizedAddress);
   const [hyperliquidResult, arcusResult, lighterResult] = await Promise.allSettled([
-    Promise.all([fetchHyperliquidFills(normalizedAddress, signal), fetchHyperliquidPnl(normalizedAddress, signal)]),
-    fetchArcusReport(normalizedAddress, signal),
-    lighterToken ? fetchLighterReport(normalizedAddress, lighterToken, signal) : inspectLighterAddress(normalizedAddress, signal),
+    selected.has("hyperliquid") ? Promise.all([fetchHyperliquidFills(normalizedAddress, signal), fetchHyperliquidPnl(normalizedAddress, signal)]) : Promise.resolve(null),
+    selected.has("arcus") ? fetchArcusReport(normalizedAddress, signal) : Promise.resolve(null),
+    selected.has("lighter") ? fetchLighterReport(normalizedAddress, lighterToken, signal) : Promise.resolve(null),
   ]);
-  if (!lighterToken && lighterResult.status === "fulfilled" && lighterResult.value.active)
-    throw new LighterTokenRequiredError(normalizedAddress);
-  if (lighterToken && lighterResult.status === "rejected" && lighterResult.reason instanceof LighterAuthError)
+  if (selected.has("lighter") && lighterResult.status === "rejected" && lighterResult.reason instanceof LighterAuthError)
     throw lighterResult.reason;
-  const hyperliquid: VenueSource = hyperliquidResult.status === "fulfilled"
+  const hyperliquid: VenueSource = selected.has("hyperliquid") && hyperliquidResult.status === "fulfilled" && hyperliquidResult.value
     ? { rawFills: hyperliquidResult.value[0].fills, portfolioPnl: hyperliquidResult.value[1], historyLimited: hyperliquidResult.value[0].historyLimited }
     : unavailable();
-  const arcus: VenueSource = arcusResult.status === "fulfilled"
+  const arcus: VenueSource = selected.has("arcus") && arcusResult.status === "fulfilled" && arcusResult.value
     ? tagWallet({ rawFills: arcusResult.value.rawFills, portfolioPnl: arcusResult.value.portfolioPnl, historyLimited: arcusResult.value.historyLimited }, normalizedAddress)
     : unavailable();
-  const lighter: VenueSource = lighterToken && lighterResult.status === "fulfilled" && "rawFills" in lighterResult.value
+  const lighter: VenueSource = selected.has("lighter") && lighterResult.status === "fulfilled" && lighterResult.value
     ? tagWallet({
         rawFills: lighterResult.value.rawFills,
         portfolioPnl: lighterResult.value.portfolioPnl,
         portfolioVolume: lighterResult.value.portfolioVolume,
         historyLimited: lighterResult.value.historyLimited,
       }, normalizedAddress)
-    : lighterToken && lighterResult.status === "rejected" ? unavailable() : { rawFills: [], portfolioPnl: null, historyLimited: false };
+    : unavailable();
   return { hyperliquid, arcus, lighter };
 }

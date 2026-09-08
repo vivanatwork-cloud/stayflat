@@ -7,6 +7,7 @@ import { getConvexToken } from "@/lib/convex-auth";
 import { LighterAuthError } from "@/lib/lighter/client";
 import { fetchWalletVenueSources, LighterTokenRequiredError } from "@/lib/report/fetch-wallet";
 import { buildMultiVenueMetrics, mergeVenueSources } from "@/lib/report/multi-venue";
+import { parseRequestedVenues } from "@/lib/report/venue-selection";
 
 const walletPattern = /^0x[0-9a-fA-F]{40}$/;
 export const maxDuration = 120;
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
     const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
     const writeSecret = process.env.PAYMENT_WRITE_SECRET;
     if (!token || !convexUrl || !writeSecret) return NextResponse.json({ error: "Portfolio reports are unavailable right now." }, { status: 503 });
-    const body = await request.json() as { addresses?: unknown; lighterTokens?: unknown; timezoneOffsetMinutes?: unknown };
+    const body = await request.json() as { addresses?: unknown; lighterTokens?: unknown; venuesByAddress?: unknown; timezoneOffsetMinutes?: unknown };
     const rawAddresses: unknown[] = Array.isArray(body.addresses) ? body.addresses : [];
     const addresses: string[] = [...new Set(rawAddresses.filter((value): value is string => typeof value === "string").map((value) => value.toLowerCase()))];
     if (addresses.length < 2 || addresses.some((address) => !walletPattern.test(address)))
@@ -30,11 +31,15 @@ export async function POST(request: Request) {
     if (addresses.some((address) => !access.addresses.includes(address)))
       return NextResponse.json({ error: "Portfolio reports can only include your saved wallets." }, { status: 403 });
     const lighterTokens = body.lighterTokens && typeof body.lighterTokens === "object" ? body.lighterTokens as Record<string, unknown> : {};
+    const venuesByAddress = body.venuesByAddress && typeof body.venuesByAddress === "object" ? body.venuesByAddress as Record<string, unknown> : {};
+    const requestedVenues = addresses.map((address) => parseRequestedVenues(venuesByAddress[address]));
+    if (requestedVenues.some((venues) => !venues))
+      return NextResponse.json({ error: "Choose at least one supported exchange for every wallet." }, { status: 400 });
     const offset = typeof body.timezoneOffsetMinutes === "number" && Math.abs(body.timezoneOffsetMinutes) <= 840 ? body.timezoneOffsetMinutes : 0;
     const signal = AbortSignal.any([request.signal, AbortSignal.timeout(110_000)]);
-    const settled = await Promise.allSettled(addresses.map((address) => {
+    const settled = await Promise.allSettled(addresses.map((address, index) => {
       const lighterToken = lighterTokens[address];
-      return fetchWalletVenueSources(address, typeof lighterToken === "string" ? lighterToken.trim() : "", signal);
+      return fetchWalletVenueSources(address, typeof lighterToken === "string" ? lighterToken.trim() : "", signal, requestedVenues[index]!);
     }));
     const required = settled.flatMap((result) => result.status === "rejected" && result.reason instanceof LighterTokenRequiredError ? [result.reason.address] : []);
     if (required.length)

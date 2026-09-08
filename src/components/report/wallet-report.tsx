@@ -12,6 +12,11 @@ type ReportResponse = { address: string; addresses?: string[]; report: MultiVenu
 type HistoryItem = { address: string; metrics?: ReportMetrics; report?: MultiVenueMetrics; createdAt: number; updatedAt?: number };
 type SavedPortfolio = { addresses: string[]; report: MultiVenueMetrics; createdAt: number; updatedAt: number };
 const walletPattern = /^0x[0-9a-fA-F]{40}$/;
+const venueOptions: { value: VenueName; label: string; note: string }[] = [
+  { value: "hyperliquid", label: "Hyperliquid", note: "Public wallet history" },
+  { value: "arcus", label: "Arcus", note: "Public wallet history" },
+  { value: "lighter", label: "Lighter", note: "Read-only token required" },
+];
 const money = (value: number | null) =>
   value == null
     ? "—"
@@ -64,7 +69,10 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
   const [address, setAddress] = useState(initialAddress);
   const [lighterToken, setLighterToken] = useState("");
   const [lighterTokenVisible, setLighterTokenVisible] = useState(false);
-  const [lighterTokenNeeded, setLighterTokenNeeded] = useState(false);
+  const [selectedVenues, setSelectedVenues] = useState<VenueName[]>(() => {
+    const saved = initialReport?.report.activeVenues ?? [];
+    return saved.length ? saved : ["hyperliquid"];
+  });
   const [report, setReport] = useState<ReportResponse | null>(() => openSavedPortfolio && savedPortfolio ? { address: savedPortfolio.addresses[0], addresses: savedPortfolio.addresses, report: savedPortfolio.report, access: initialAccess } : initialReport);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
@@ -82,7 +90,7 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
   }, [error]);
   useEffect(() => () => requestRef.current?.abort(), []);
 
-  async function generate(value: string) {
+  async function generate(value: string, venues: VenueName[] = selectedVenues) {
     requestRef.current?.abort();
     const controller = new AbortController();
     requestRef.current = controller;
@@ -95,6 +103,7 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           address: value,
+          venues,
           timezoneOffsetMinutes: new Date().getTimezoneOffset(),
           ...(lighterToken.trim() ? { lighterToken: lighterToken.trim() } : {}),
         }),
@@ -103,7 +112,6 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
       const data = await response.json().catch(() => null) as ReportResponse & { error?: string; code?: string } | null;
       if (!response.ok) {
         if (data?.code === "LIGHTER_TOKEN_REQUIRED" || data?.code === "LIGHTER_TOKEN_INVALID") {
-          setLighterTokenNeeded(true);
           window.setTimeout(() => lighterTokenRef.current?.focus(), 0);
         }
         throw new Error(data?.error || "We couldn't generate the report. Try again.");
@@ -147,6 +155,15 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
       setError("Report generation is blocked for this account. Contact support if you think this is a mistake.");
       return;
     }
+    if (!selectedVenues.length) {
+      setError("Choose at least one exchange.");
+      return;
+    }
+    if (selectedVenues.includes("lighter") && !lighterToken.trim()) {
+      setError("Add your Lighter read-only token to read Lighter history.");
+      window.setTimeout(() => lighterTokenRef.current?.focus(), 0);
+      return;
+    }
     await generate(value);
   }
 
@@ -161,7 +178,15 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
       const response = await fetch("/api/report/portfolio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ addresses: selectedAddresses, lighterTokens: portfolioTokens, timezoneOffsetMinutes: new Date().getTimezoneOffset() }),
+        body: JSON.stringify({
+          addresses: selectedAddresses,
+          lighterTokens: portfolioTokens,
+          venuesByAddress: Object.fromEntries(selectedAddresses.map((wallet) => {
+            const savedVenues = history.find((item) => item.address === wallet)?.report?.activeVenues;
+            return [wallet, savedVenues?.length ? savedVenues : ["hyperliquid"]];
+          })),
+          timezoneOffsetMinutes: new Date().getTimezoneOffset(),
+        }),
         signal: controller.signal,
       });
       const data = await response.json().catch(() => null) as { addresses?: string[]; report?: MultiVenueMetrics; error?: string; code?: string } | null;
@@ -189,7 +214,7 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
     setReport(null);
     setAddress("");
     setLighterToken("");
-    setLighterTokenNeeded(false);
+    setSelectedVenues(["hyperliquid"]);
     setStatus("idle");
     setError("");
     router.replace("/report");
@@ -201,7 +226,7 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
     <ReportResult
       report={report}
       onReset={reset}
-      onRefresh={() => report.addresses && report.addresses.length > 1 ? generatePortfolio() : generate(report.address)}
+      onRefresh={() => report.addresses && report.addresses.length > 1 ? generatePortfolio() : generate(report.address, report.report.activeVenues.length ? report.report.activeVenues : ["hyperliquid"])}
       onCancel={() => requestRef.current?.abort()}
       refreshing={status === "loading"}
       error={error}
@@ -225,6 +250,34 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
         <span>saved wallets · unlimited</span>
       </div>
       <form className="report-wallet-form" onSubmit={submit} noValidate>
+        <fieldset className="report-venue-picker" disabled={status === "loading"}>
+          <legend>Which exchanges should we read?</legend>
+          <p>Select every exchange used by this wallet.</p>
+          <div className="report-venue-options">
+            {venueOptions.map((option) => {
+              const checked = selectedVenues.includes(option.value);
+              return (
+                <label key={option.value} className={checked ? "is-selected" : ""}>
+                  <input
+                    type="checkbox"
+                    value={option.value}
+                    checked={checked}
+                    onChange={() => {
+                      setSelectedVenues((current) => checked
+                        ? current.filter((venue) => venue !== option.value)
+                        : [...current, option.value]);
+                      if (error) setError("");
+                    }}
+                  />
+                  <span><strong>{option.label}</strong><small>{option.note}</small></span>
+                </label>
+              );
+            })}
+            <Link href="/request-exchange" className="report-venue-other">
+              <span><strong>Other</strong><small>Request an exchange</small></span><b aria-hidden="true">→</b>
+            </Link>
+          </div>
+        </fieldset>
         <div className="report-address-row">
           <label className="sr-only" htmlFor="wallet-address">Wallet address</label>
           <input
@@ -247,15 +300,11 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
             {status === "loading" ? "Reading venues…" : "Read my trading"}
           </button>
         </div>
-        <details className="report-lighter-access" open={lighterTokenNeeded} onToggle={(event) => setLighterTokenNeeded(event.currentTarget.open)}>
-          <summary>
-            <span><i aria-hidden="true" /> Add Lighter history</span>
-            <small>Read-only token</small>
-          </summary>
+        {selectedVenues.includes("lighter") ? <section className="report-lighter-access" aria-labelledby="lighter-access-title">
           <div className="report-lighter-access-body">
             <div>
-              <label htmlFor="lighter-token">Lighter read-only token</label>
-              <p>Needed only when this wallet trades on Lighter. StayFlat uses it once and never saves it.</p>
+              <label id="lighter-access-title" htmlFor="lighter-token">Lighter read-only token</label>
+              <p>StayFlat uses it once to read Lighter history and never saves it.</p>
             </div>
             <div className="report-token-row">
               <input
@@ -271,6 +320,7 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
                 spellCheck={false}
                 autoComplete="off"
                 aria-describedby="lighter-token-help"
+                required
                 disabled={status === "loading"}
               />
               <button type="button" onClick={() => setLighterTokenVisible((visible) => !visible)} aria-label={`${lighterTokenVisible ? "Hide" : "Show"} Lighter token`}>
@@ -281,7 +331,7 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
               Generate it on <a href="https://app.lighter.xyz/apikeys" target="_blank" rel="noreferrer">Lighter <span aria-hidden="true">↗</span></a>. Read-only tokens cannot trade or withdraw.
             </p>
           </div>
-        </details>
+        </section> : null}
       </form>
       <p className="sr-only" aria-live="polite">{announcement}</p>
       {status === "loading" && <ReportLoading onCancel={() => requestRef.current?.abort()} />}

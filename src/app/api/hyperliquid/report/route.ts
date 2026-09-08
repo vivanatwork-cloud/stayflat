@@ -7,6 +7,7 @@ import { fetchWalletVenueSources, LighterTokenRequiredError } from "@/lib/report
 import { LighterAuthError } from "@/lib/lighter/client";
 import { api } from "../../../../../convex/_generated/api";
 import { getConvexToken } from "@/lib/convex-auth";
+import { parseRequestedVenues } from "@/lib/report/venue-selection";
 
 const walletPattern = /^0x[0-9a-fA-F]{40}$/;
 export const maxDuration = 60;
@@ -30,19 +31,22 @@ export async function POST(request: Request) {
     if (access.blocked)
       return NextResponse.json({ error: "Report generation is blocked for this account. Contact support if you think this is a mistake.", code: "ACCESS_BLOCKED" }, { status: 403 });
 
-    const { address, timezoneOffsetMinutes, lighterToken } = await request.json();
+    const { address, timezoneOffsetMinutes, lighterToken, venues } = await request.json();
     if (typeof address !== "string" || !walletPattern.test(address)) return NextResponse.json({ error: "Enter a valid 42-character wallet address." }, { status: 400 });
     const normalizedAddress = address.toLowerCase();
     const offset = typeof timezoneOffsetMinutes === "number" && Math.abs(timezoneOffsetMinutes) <= 840 ? timezoneOffsetMinutes : 0;
     if (lighterToken != null && typeof lighterToken !== "string")
       return NextResponse.json({ error: "The Lighter token is not valid.", code: "LIGHTER_TOKEN_INVALID" }, { status: 400 });
     const trimmedLighterToken = typeof lighterToken === "string" ? lighterToken.trim() : "";
+    const requestedVenues = parseRequestedVenues(venues);
+    if (!requestedVenues)
+      return NextResponse.json({ error: "Choose at least one supported exchange." }, { status: 400 });
     let sources;
     try {
-      sources = await fetchWalletVenueSources(normalizedAddress, trimmedLighterToken, reportSignal);
+      sources = await fetchWalletVenueSources(normalizedAddress, trimmedLighterToken, reportSignal, requestedVenues);
     } catch (error) {
       if (error instanceof LighterTokenRequiredError)
-        return NextResponse.json({ error: "This wallet has Lighter activity. Add a Lighter read-only token to include its complete history.", code: "LIGHTER_TOKEN_REQUIRED" }, { status: 428 });
+        return NextResponse.json({ error: "Lighter was selected. Add a Lighter read-only token to read its history.", code: "LIGHTER_TOKEN_REQUIRED" }, { status: 428 });
       if (error instanceof LighterAuthError)
         return NextResponse.json({ error: error.message, code: "LIGHTER_TOKEN_INVALID" }, { status: 400 });
       throw error;
