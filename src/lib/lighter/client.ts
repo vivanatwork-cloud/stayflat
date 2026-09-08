@@ -75,7 +75,7 @@ type TradesResponse = {
 type PnlResponse = {
   code: number;
   message?: string;
-  pnl?: { timestamp?: number; trade_pnl: number }[];
+  pnl?: { timestamp?: number; trade_pnl: number; volume?: number }[];
 };
 
 export type LighterAddressState = {
@@ -86,6 +86,7 @@ export type LighterAddressState = {
 export type LighterReportSource = {
   rawFills: RawFill[];
   portfolioPnl: number | null;
+  portfolioVolume: number | null;
   historyLimited: boolean;
   active: boolean;
 };
@@ -223,7 +224,14 @@ async function fetchAccountPnl(accountIndex: number, token: string, signal: Abor
   const data = await getJson<PnlResponse>(url, signal, fetcher, token);
   const latest = data.pnl?.toSorted((a, b) => Number(a.timestamp ?? 0) - Number(b.timestamp ?? 0)).at(-1);
   const value = Number(latest?.trade_pnl);
-  return Number.isFinite(value) ? value : null;
+  const volume = (data.pnl ?? []).reduce((sum, entry) => {
+    const dailyVolume = Number(entry.volume ?? 0);
+    return Number.isFinite(dailyVolume) ? sum + dailyVolume : sum;
+  }, 0);
+  return {
+    pnl: Number.isFinite(value) ? value : null,
+    volume: Number.isFinite(volume) && volume > 0 ? volume : null,
+  };
 }
 
 export async function fetchLighterReport(address: string, token: string, signal: AbortSignal, fetcher: Fetcher = fetch): Promise<LighterReportSource> {
@@ -239,7 +247,7 @@ export async function fetchLighterReport(address: string, token: string, signal:
       fetchAccountTrades(account.index, token, signal, fetcher),
       fetchAccountPnl(account.index, token, signal, fetcher),
     ]);
-    return { accountIndex: account.index, ...trades, pnl };
+    return { accountIndex: account.index, ...trades, ...pnl };
   });
   const [marketData, accountData] = await Promise.all([marketsPromise, Promise.all(accountPromises)]);
   const markets = new Map((marketData.order_book_details ?? [])
@@ -247,10 +255,15 @@ export async function fetchLighterReport(address: string, token: string, signal:
     .map((market) => [market.market_id, market.symbol]));
   const rawFills = accountData.flatMap((account) => normalizeLighterTrades(account.rows, account.accountIndex, markets));
   const pnlValues = accountData.map((account) => account.pnl).filter((value): value is number => value != null);
+  const volumeValues = accountData.map((account) => account.volume).filter((value): value is number => value != null);
+  const portfolioVolume = volumeValues.length ? volumeValues.reduce((sum, value) => sum + value, 0) : null;
+  const fetchedVolume = rawFills.reduce((sum, fill) => sum + Number(fill.px) * Number(fill.sz), 0);
+  const missingOlderTrades = portfolioVolume != null && portfolioVolume - fetchedVolume > Math.max(1, portfolioVolume * 0.001);
   return {
     rawFills,
     portfolioPnl: pnlValues.length ? pnlValues.reduce((sum, value) => sum + value, 0) : null,
-    historyLimited: accountData.some((account) => account.historyLimited),
+    portfolioVolume,
+    historyLimited: accountData.some((account) => account.historyLimited) || missingOlderTrades,
     active: rawFills.length > 0,
   };
 }

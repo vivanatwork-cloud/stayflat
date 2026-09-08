@@ -224,7 +224,7 @@ export function reconstructPositions(fills: Fill[]) {
   return completed.toSorted((a, b) => a.closedAt - b.closedAt);
 }
 
-export function computeMetrics(rawFills: RawFill[], portfolioPnl: number | null, timezoneOffsetMinutes = 0): ReportMetrics {
+export function computeMetrics(rawFills: RawFill[], portfolioPnl: number | null, timezoneOffsetMinutes = 0, portfolioVolume?: number | null): ReportMetrics {
   const fills = normalizeFills(rawFills);
   if (!fills.length) return { empty: true, positionCount: 0, confidence: "low", cumulativePnl: [], dailyPnl: [] };
   const positions = reconstructPositions(fills);
@@ -383,7 +383,7 @@ export function computeMetrics(rawFills: RawFill[], portfolioPnl: number | null,
     longestWinStreakMonth,
     longestLossStreakMonth,
     avgTradeDurationMinutes,
-    totalPerpsVolume,
+    totalPerpsVolume: portfolioVolume ?? totalPerpsVolume,
     winRate: positionCount ? wins.length / positionCount : null,
     fees,
     biggestLoss: positions.reduce((minimum, position) => Math.min(minimum, netPnlFor(position)), 0),

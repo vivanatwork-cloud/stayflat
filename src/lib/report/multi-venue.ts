@@ -17,6 +17,7 @@ export type MultiVenueMetrics = {
 export type VenueSource = {
   rawFills: RawFill[];
   portfolioPnl: number | null;
+  portfolioVolume?: number | null;
   historyLimited: boolean;
   unavailable?: boolean;
 };
@@ -36,7 +37,7 @@ export function buildMultiVenueMetrics(
     const source = normalizedSources[venue];
     const metrics = source.unavailable
       ? emptyMetrics()
-      : { ...computeMetrics(source.rawFills, source.portfolioPnl, timezoneOffsetMinutes), historyLimited: source.historyLimited, generatedAt: Date.now() };
+      : { ...computeMetrics(source.rawFills, source.portfolioPnl, timezoneOffsetMinutes, source.portfolioVolume), historyLimited: source.historyLimited, generatedAt: Date.now() };
     return { venue, active: !source.unavailable && source.rawFills.length > 0, metrics, ...(source.unavailable ? { unavailable: true } : {}) };
   };
   const hyperliquid = metricFor("hyperliquid");
@@ -47,8 +48,9 @@ export function buildMultiVenueMetrics(
   const readySources = activeVenues.map((venue) => normalizedSources[venue]);
   const allFills = readySources.flatMap((source) => source.rawFills).toSorted((a, b) => Number(a.time) - Number(b.time));
   const pnlValues = readySources.map((source) => source.portfolioPnl).filter((value): value is number => value != null);
+  const combinedVolume = readySources.reduce((sum, source) => sum + (source.portfolioVolume ?? source.rawFills.reduce((venueSum, fill) => venueSum + Number(fill.px) * Number(fill.sz), 0)), 0);
   const combined = {
-    ...computeMetrics(allFills, pnlValues.length ? pnlValues.reduce((sum, value) => sum + value, 0) : null, timezoneOffsetMinutes),
+    ...computeMetrics(allFills, pnlValues.length ? pnlValues.reduce((sum, value) => sum + value, 0) : null, timezoneOffsetMinutes, combinedVolume),
     historyLimited: readySources.some((source) => source.historyLimited),
     generatedAt: Date.now(),
   };

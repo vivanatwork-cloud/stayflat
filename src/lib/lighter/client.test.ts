@@ -63,13 +63,15 @@ describe("fetchLighterReport", () => {
       if (url.pathname.endsWith("/pnl")) {
         pnlRequests.push(url);
         const latestPnl = Number(url.searchParams.get("value")) === 1483 ? 10 : 5;
-        return Response.json({ code: 200, pnl: [{ timestamp: 200, trade_pnl: latestPnl }, { timestamp: 100, trade_pnl: 999 }] });
+        return Response.json({ code: 200, pnl: [{ timestamp: 200, trade_pnl: latestPnl, volume: 150 }, { timestamp: 100, trade_pnl: 999, volume: 100 }] });
       }
       return Response.json({ code: 404 }, { status: 404 });
     }) as unknown as typeof fetch;
     const result = await fetchLighterReport("0xabc", token, new AbortController().signal, fetcher);
     expect(result.rawFills).toHaveLength(2);
     expect(result.portfolioPnl).toBe(15);
+    expect(result.portfolioVolume).toBe(500);
+    expect(result.historyLimited).toBe(true);
     expect(result.active).toBe(true);
     expect(pnlRequests).toHaveLength(2);
     expect(pnlRequests.every((url) => url.searchParams.get("ignore_transfers") === "false")).toBe(true);
