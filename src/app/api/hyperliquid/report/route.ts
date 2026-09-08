@@ -7,7 +7,7 @@ import { fetchWalletVenueSources, LighterTokenRequiredError } from "@/lib/report
 import { LighterAuthError } from "@/lib/lighter/client";
 import { api } from "../../../../../convex/_generated/api";
 import { getConvexToken } from "@/lib/convex-auth";
-import { parseRequestedVenues } from "@/lib/report/venue-selection";
+import { parseRequestedVenues, requestedWalletVenues } from "@/lib/report/venue-selection";
 
 const walletPattern = /^0x[0-9a-fA-F]{40}$/;
 export const maxDuration = 60;
@@ -38,9 +38,10 @@ export async function POST(request: Request) {
     if (lighterToken != null && typeof lighterToken !== "string")
       return NextResponse.json({ error: "The Lighter token is not valid.", code: "LIGHTER_TOKEN_INVALID" }, { status: 400 });
     const trimmedLighterToken = typeof lighterToken === "string" ? lighterToken.trim() : "";
-    const requestedVenues = parseRequestedVenues(venues);
-    if (!requestedVenues)
+    const parsedVenues = parseRequestedVenues(venues);
+    if (!parsedVenues)
       return NextResponse.json({ error: "Choose at least one supported exchange." }, { status: 400 });
+    const requestedVenues = requestedWalletVenues(parsedVenues.includes("lighter"));
     let sources;
     try {
       sources = await fetchWalletVenueSources(normalizedAddress, trimmedLighterToken, reportSignal, requestedVenues);

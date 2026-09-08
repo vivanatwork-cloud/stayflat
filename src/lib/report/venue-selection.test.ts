@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRequestedVenues } from "./venue-selection";
+import { parseRequestedVenues, requestedWalletVenues } from "./venue-selection";
 
 describe("parseRequestedVenues", () => {
   it("accepts multiple supported venues", () => {
@@ -18,5 +18,15 @@ describe("parseRequestedVenues", () => {
   it("rejects an empty selection and unsupported exchanges", () => {
     expect(parseRequestedVenues([])).toBeNull();
     expect(parseRequestedVenues(["other"])).toBeNull();
+  });
+});
+
+describe("requestedWalletVenues", () => {
+  it("always scans both public venues", () => {
+    expect(requestedWalletVenues(false)).toEqual(["hyperliquid", "arcus"]);
+  });
+
+  it("adds Lighter only when requested", () => {
+    expect(requestedWalletVenues(true)).toEqual(["hyperliquid", "arcus", "lighter"]);
   });
 });

@@ -8,15 +8,13 @@ import type { ReportMetrics } from "@/lib/hyperliquid/metrics";
 import type { MultiVenueMetrics, VenueName } from "@/lib/report/multi-venue";
 
 type Access = { used: number; limit: number; unlimited?: boolean; blocked?: boolean };
-type ReportResponse = { address: string; addresses?: string[]; report: MultiVenueMetrics; access: Access };
+type WalletReportItem = { address: string; report: MultiVenueMetrics };
+type ReportResponse = { address: string; addresses?: string[]; report: MultiVenueMetrics; walletReports?: WalletReportItem[]; access: Access };
 type HistoryItem = { address: string; metrics?: ReportMetrics; report?: MultiVenueMetrics; createdAt: number; updatedAt?: number };
 type SavedPortfolio = { addresses: string[]; report: MultiVenueMetrics; createdAt: number; updatedAt: number };
+type WalletDraft = { id: number; address: string; includeLighter: boolean; lighterToken: string; tokenVisible: boolean };
 const walletPattern = /^0x[0-9a-fA-F]{40}$/;
-const venueOptions: { value: VenueName; label: string; note: string }[] = [
-  { value: "hyperliquid", label: "Hyperliquid", note: "Public wallet history" },
-  { value: "arcus", label: "Arcus", note: "Public wallet history" },
-  { value: "lighter", label: "Lighter", note: "Read-only token required" },
-];
+const newWallet = (id: number, address = "", includeLighter = false): WalletDraft => ({ id, address, includeLighter, lighterToken: "", tokenVisible: false });
 const money = (value: number | null) =>
   value == null
     ? "—"
@@ -64,15 +62,10 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const lighterTokenRef = useRef<HTMLInputElement>(null);
+  const nextWalletId = useRef(2);
   const errorRef = useRef<HTMLParagraphElement>(null);
   const requestRef = useRef<AbortController | null>(null);
-  const [address, setAddress] = useState(initialAddress);
-  const [lighterToken, setLighterToken] = useState("");
-  const [lighterTokenVisible, setLighterTokenVisible] = useState(false);
-  const [selectedVenues, setSelectedVenues] = useState<VenueName[]>(() => {
-    const saved = initialReport?.report.activeVenues ?? [];
-    return saved.length ? saved : ["hyperliquid"];
-  });
+  const [wallets, setWallets] = useState<WalletDraft[]>(() => [newWallet(1, initialAddress, Boolean(initialReport?.report.activeVenues.includes("lighter")))]);
   const [report, setReport] = useState<ReportResponse | null>(() => openSavedPortfolio && savedPortfolio ? { address: savedPortfolio.addresses[0], addresses: savedPortfolio.addresses, report: savedPortfolio.report, access: initialAccess } : initialReport);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
@@ -90,7 +83,7 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
   }, [error]);
   useEffect(() => () => requestRef.current?.abort(), []);
 
-  async function generate(value: string, venues: VenueName[] = selectedVenues) {
+  async function generate(drafts: WalletDraft[]) {
     requestRef.current?.abort();
     const controller = new AbortController();
     requestRef.current = controller;
@@ -98,18 +91,16 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
     setAnnouncement("Reading this wallet. This usually takes less than 30 seconds.");
     setError("");
     try {
-      const response = await fetch("/api/report", {
+      const response = await fetch("/api/report/batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          address: value,
-          venues,
+          wallets: drafts.map(({ address, includeLighter, lighterToken }) => ({ address: address.trim(), includeLighter, ...(includeLighter ? { lighterToken: lighterToken.trim() } : {}) })),
           timezoneOffsetMinutes: new Date().getTimezoneOffset(),
-          ...(lighterToken.trim() ? { lighterToken: lighterToken.trim() } : {}),
         }),
         signal: controller.signal,
       });
-      const data = await response.json().catch(() => null) as ReportResponse & { error?: string; code?: string } | null;
+      const data = await response.json().catch(() => null) as ReportResponse & { error?: string; code?: string; address?: string } | null;
       if (!response.ok) {
         if (data?.code === "LIGHTER_TOKEN_REQUIRED" || data?.code === "LIGHTER_TOKEN_INVALID") {
           window.setTimeout(() => lighterTokenRef.current?.focus(), 0);
@@ -120,8 +111,10 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
       setReport(data);
       setAccess(data.access);
       setHistory((current) => {
-      const next = { address: data.address, report: data.report, createdAt: Date.now(), updatedAt: Date.now() };
-        return [next, ...current.filter((item) => item.address !== data.address)];
+        const generated = (data.walletReports ?? [{ address: data.address, report: data.report }])
+          .map((item) => ({ ...item, createdAt: Date.now(), updatedAt: Date.now() }));
+        const generatedAddresses = new Set(generated.map((item) => item.address));
+        return [...generated, ...current.filter((item) => !generatedAddresses.has(item.address))];
       });
       setStatus("idle");
       setAnnouncement("Report ready.");
@@ -144,27 +137,25 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError("");
-    const value = address.trim();
-    if (!walletPattern.test(value)) {
-      setError(
-        "That doesn't look like a wallet address. It should start with 0x and be 42 characters.",
-      );
+    if (wallets.some((wallet) => !walletPattern.test(wallet.address.trim()))) {
+      setError("Every wallet should start with 0x and contain 42 characters.");
+      return;
+    }
+    const normalized = wallets.map((wallet) => wallet.address.trim().toLowerCase());
+    if (new Set(normalized).size !== normalized.length) {
+      setError("Each wallet can appear only once.");
       return;
     }
     if (newAddressBlocked) {
       setError("Report generation is blocked for this account. Contact support if you think this is a mistake.");
       return;
     }
-    if (!selectedVenues.length) {
-      setError("Choose at least one exchange.");
-      return;
-    }
-    if (selectedVenues.includes("lighter") && !lighterToken.trim()) {
-      setError("Add your Lighter read-only token to read Lighter history.");
+    if (wallets.some((wallet) => wallet.includeLighter && !wallet.lighterToken.trim())) {
+      setError("Add a Lighter read-only key for every wallet where Lighter is enabled.");
       window.setTimeout(() => lighterTokenRef.current?.focus(), 0);
       return;
     }
-    await generate(value);
+    await generate(wallets);
   }
 
   async function generatePortfolio() {
@@ -212,9 +203,7 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
   function reset() {
     requestRef.current?.abort();
     setReport(null);
-    setAddress("");
-    setLighterToken("");
-    setSelectedVenues(["hyperliquid"]);
+    setWallets([newWallet(nextWalletId.current++)]);
     setStatus("idle");
     setError("");
     router.replace("/report");
@@ -226,7 +215,12 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
     <ReportResult
       report={report}
       onReset={reset}
-      onRefresh={() => report.addresses && report.addresses.length > 1 ? generatePortfolio() : generate(report.address, report.report.activeVenues.length ? report.report.activeVenues : ["hyperliquid"])}
+      onRefresh={() => report.walletReports
+        ? generate(report.walletReports.map((item, index) => {
+            const existing = wallets.find((wallet) => wallet.address.trim().toLowerCase() === item.address);
+            return existing ?? newWallet(nextWalletId.current + index, item.address, item.report.activeVenues.includes("lighter"));
+          }))
+        : report.addresses && report.addresses.length > 1 ? generatePortfolio() : generate([wallets[0]])}
       onCancel={() => requestRef.current?.abort()}
       refreshing={status === "loading"}
       error={error}
@@ -239,99 +233,88 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
     <section className="report-panel" aria-labelledby="report-title">
       <p className="report-eyebrow">Your report</p>
       <h1 id="report-title">
-        One wallet. <em>Every supported perp venue.</em>
+        Up to ten wallets. <em>One complete trading read.</em>
       </h1>
       <p className="report-sub">
-        Paste one address to read its Hyperliquid, Arcus, and Lighter history together.
-        If it trades across venues, you&apos;ll also get a combined view.
+        Hyperliquid and Arcus are scanned automatically. Add Lighter only for wallets where you have a read-only key.
       </p>
       <div className="report-allowance" aria-label="Wallet report usage">
         <strong>{access.used}</strong>
         <span>saved wallets · unlimited</span>
       </div>
       <form className="report-wallet-form" onSubmit={submit} noValidate>
-        <fieldset className="report-venue-picker" disabled={status === "loading"}>
-          <legend>Which exchanges should we read?</legend>
-          <p>Select every exchange used by this wallet.</p>
-          <div className="report-venue-options">
-            {venueOptions.map((option) => {
-              const checked = selectedVenues.includes(option.value);
-              return (
-                <label key={option.value} className={checked ? "is-selected" : ""}>
-                  <input
-                    type="checkbox"
-                    value={option.value}
-                    checked={checked}
-                    onChange={() => {
-                      setSelectedVenues((current) => checked
-                        ? current.filter((venue) => venue !== option.value)
-                        : [...current, option.value]);
-                      if (error) setError("");
-                    }}
-                  />
-                  <span><strong>{option.label}</strong><small>{option.note}</small></span>
-                </label>
-              );
-            })}
-            <Link href="/request-exchange" className="report-venue-other">
-              <span><strong>Other</strong><small>Request an exchange</small></span><b aria-hidden="true">→</b>
-            </Link>
-          </div>
-        </fieldset>
-        <div className="report-address-row">
-          <label className="sr-only" htmlFor="wallet-address">Wallet address</label>
-          <input
-            ref={inputRef}
-            id="wallet-address"
-            value={address}
-            onChange={(event) => {
-              setAddress(event.target.value);
-              if (error) setError("");
-            }}
-            spellCheck={false}
-            autoComplete="off"
-            autoCapitalize="none"
-            placeholder="0x… your wallet address"
-            aria-describedby={`wallet-help${error ? " wallet-error" : ""}`}
-            aria-invalid={Boolean(error)}
-            disabled={status === "loading"}
-          />
-          <button type="submit" disabled={status === "loading" || newAddressBlocked}>
-            {status === "loading" ? "Reading venues…" : "Read my trading"}
-          </button>
+        <div className="report-wallet-list-heading">
+          <div><strong>Wallets to scan</strong><span>Hyperliquid + Arcus included</span></div>
+          <b>{wallets.length} of 10 wallets</b>
         </div>
-        {selectedVenues.includes("lighter") ? <section className="report-lighter-access" aria-labelledby="lighter-access-title">
-          <div className="report-lighter-access-body">
-            <div>
-              <label id="lighter-access-title" htmlFor="lighter-token">Lighter read-only token</label>
-              <p>StayFlat uses it once to read Lighter history and never saves it.</p>
-            </div>
-            <div className="report-token-row">
+        <div className="report-wallet-list">
+          {wallets.map((wallet, index) => (
+            <section className="report-wallet-ticket" key={wallet.id} aria-labelledby={`wallet-${wallet.id}-label`}>
+              <header>
+                <span id={`wallet-${wallet.id}-label`}>Wallet {index + 1}</span>
+                <small>Hyperliquid + Arcus</small>
+                {wallets.length > 1 ? <button type="button" onClick={() => setWallets((current) => current.filter((item) => item.id !== wallet.id))} disabled={status === "loading"} aria-label={`Remove wallet ${index + 1}`}>Remove</button> : null}
+              </header>
+              <label className="sr-only" htmlFor={`wallet-address-${wallet.id}`}>Wallet {index + 1} address</label>
               <input
-                ref={lighterTokenRef}
-                id="lighter-token"
-                type={lighterTokenVisible ? "text" : "password"}
-                value={lighterToken}
+                ref={index === 0 ? inputRef : undefined}
+                id={`wallet-address-${wallet.id}`}
+                value={wallet.address}
                 onChange={(event) => {
-                  setLighterToken(event.target.value);
+                  const value = event.target.value;
+                  setWallets((current) => current.map((item) => item.id === wallet.id ? { ...item, address: value } : item));
                   if (error) setError("");
                 }}
-                placeholder="ro:…"
                 spellCheck={false}
                 autoComplete="off"
-                aria-describedby="lighter-token-help"
-                required
+                autoCapitalize="none"
+                placeholder="0x… wallet address"
+                aria-describedby={`wallet-help${error ? " wallet-error" : ""}`}
+                aria-invalid={Boolean(error)}
                 disabled={status === "loading"}
               />
-              <button type="button" onClick={() => setLighterTokenVisible((visible) => !visible)} aria-label={`${lighterTokenVisible ? "Hide" : "Show"} Lighter token`}>
-                {lighterTokenVisible ? "Hide" : "Show"}
-              </button>
-            </div>
-            <p id="lighter-token-help" className="report-token-help">
-              Generate it on <a href="https://app.lighter.xyz/apikeys" target="_blank" rel="noreferrer">Lighter <span aria-hidden="true">↗</span></a>. Read-only tokens cannot trade or withdraw.
-            </p>
-          </div>
-        </section> : null}
+              <label className="report-lighter-toggle">
+                <input type="checkbox" checked={wallet.includeLighter} onChange={() => setWallets((current) => current.map((item) => item.id === wallet.id ? { ...item, includeLighter: !item.includeLighter } : item))} disabled={status === "loading"} />
+                <span><strong>Also scan Lighter</strong><small>Requires this wallet&apos;s read-only key</small></span>
+              </label>
+              {wallet.includeLighter ? <div className="report-ticket-token">
+                <label htmlFor={`lighter-token-${wallet.id}`}>Lighter read-only key</label>
+                <div className="report-token-row">
+                  <input
+                    ref={wallets.find((item) => item.includeLighter)?.id === wallet.id ? lighterTokenRef : undefined}
+                    id={`lighter-token-${wallet.id}`}
+                    type={wallet.tokenVisible ? "text" : "password"}
+                    value={wallet.lighterToken}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setWallets((current) => current.map((item) => item.id === wallet.id ? { ...item, lighterToken: value } : item));
+                      if (error) setError("");
+                    }}
+                    placeholder="ro:…"
+                    spellCheck={false}
+                    autoComplete="off"
+                    required
+                    disabled={status === "loading"}
+                  />
+                  <button type="button" onClick={() => setWallets((current) => current.map((item) => item.id === wallet.id ? { ...item, tokenVisible: !item.tokenVisible } : item))} aria-label={`${wallet.tokenVisible ? "Hide" : "Show"} Lighter key for wallet ${index + 1}`}>
+                    {wallet.tokenVisible ? "Hide" : "Show"}
+                  </button>
+                </div>
+                <p>Used once and never saved. <a href="https://app.lighter.xyz/apikeys" target="_blank" rel="noreferrer">Generate a key <span aria-hidden="true">↗</span></a></p>
+              </div> : null}
+            </section>
+          ))}
+        </div>
+        <div className="report-wallet-form-actions">
+          <button type="button" className="report-add-wallet" onClick={() => setWallets((current) => [...current, newWallet(nextWalletId.current++)])} disabled={wallets.length >= 10 || status === "loading"}>+ Add another wallet</button>
+          <button type="submit" disabled={status === "loading" || newAddressBlocked}>
+            {status === "loading" ? `Reading ${wallets.length} ${wallets.length === 1 ? "wallet" : "wallets"}…` : wallets.length === 1 ? "Read this wallet" : "Build combined report"}
+          </button>
+        </div>
+        <p className="report-wallet-auto-note"><i aria-hidden="true" /> Every wallet is checked on both Hyperliquid and Arcus.</p>
+        <div className="report-options">
+          <p><Link href="/request-exchange">Request another exchange →</Link></p>
+        </div>
       </form>
       <p className="sr-only" aria-live="polite">{announcement}</p>
       {status === "loading" && <ReportLoading onCancel={() => requestRef.current?.abort()} />}
@@ -345,9 +328,6 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
             Report generation is blocked for this account. Contact support if you think this is a mistake.
           </p>
         )}
-        <p>
-          Don&apos;t use Hyperliquid? <Link href="/request-exchange">Request another exchange.</Link>
-        </p>
       </div>
       {history.length > 0 && (
         <section className="report-history-inline" aria-labelledby="past-reports-title">
@@ -355,16 +335,16 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
             <div className="report-portfolio-builder">
               <p className="report-eyebrow">Portfolio report</p>
               <h2>Read your wallets as one book.</h2>
-              <p>Select at least two saved wallets. StayFlat rebuilds their trades together; this does not use another wallet slot.</p>
+              <p>Select 2 to 10 saved wallets. StayFlat rebuilds their trades together.</p>
               <div className="report-portfolio-wallets">
                 {history.map((item) => {
                   const checked = selectedAddresses.includes(item.address);
-                  return <label key={item.address}><input type="checkbox" checked={checked} onChange={() => setSelectedAddresses((current) => checked ? current.filter((address) => address !== item.address) : [...current, item.address])} /><span>{item.address.slice(0, 8)}…{item.address.slice(-6)}</span></label>;
+                  return <label key={item.address}><input type="checkbox" checked={checked} disabled={!checked && selectedAddresses.length >= 10} onChange={() => setSelectedAddresses((current) => checked ? current.filter((address) => address !== item.address) : [...current, item.address])} /><span>{item.address.slice(0, 8)}…{item.address.slice(-6)}</span></label>;
                 })}
               </div>
               {lighterWallets.map((wallet) => <label className="report-portfolio-token" key={wallet}><span>Lighter key for {wallet.slice(0, 8)}…{wallet.slice(-6)}</span><input type="password" value={portfolioTokens[wallet] ?? ""} onChange={(event) => setPortfolioTokens((current) => ({ ...current, [wallet]: event.target.value }))} placeholder="ro:…" autoComplete="off" /></label>)}
               <div className="report-portfolio-actions">
-                <button type="button" onClick={generatePortfolio} disabled={selectedAddresses.length < 2 || status === "loading" || access.blocked}>{status === "loading" ? "Building portfolio…" : `Build portfolio · ${selectedAddresses.length} wallets`}</button>
+                <button type="button" onClick={generatePortfolio} disabled={selectedAddresses.length < 2 || selectedAddresses.length > 10 || status === "loading" || access.blocked}>{status === "loading" ? "Building portfolio…" : `Build portfolio · ${selectedAddresses.length} wallets`}</button>
                 {savedPortfolio ? <button type="button" className="report-link-button" onClick={() => { setReport({ address: savedPortfolio.addresses[0], addresses: savedPortfolio.addresses, report: savedPortfolio.report, access }); router.replace("/report?portfolio=1"); }}>View saved portfolio</button> : null}
               </div>
             </div>
@@ -428,13 +408,18 @@ function ReportResult({
   readyKey: number;
   blocked: boolean;
 }) {
-  const hasCombined = report.report.activeVenues.length >= 2;
-  const isPortfolio = Boolean(report.addresses && report.addresses.length > 1);
-  const initialVenue: "combined" | VenueName = hasCombined ? "combined" : (report.report.activeVenues[0] ?? "combined");
+  const hasWalletSwitcher = Boolean(report.walletReports && report.walletReports.length > 1);
+  const [selectedWallet, setSelectedWallet] = useState<"all" | string>(report.addresses && report.addresses.length > 1 ? "all" : report.address);
+  const selectedWalletReport = selectedWallet === "all" ? null : report.walletReports?.find((item) => item.address === selectedWallet);
+  const currentReport = selectedWalletReport?.report ?? report.report;
+  const currentAddress = selectedWalletReport?.address ?? report.address;
+  const hasCombined = currentReport.activeVenues.length >= 2;
+  const isPortfolio = selectedWallet === "all" && Boolean(report.addresses && report.addresses.length > 1);
+  const initialVenue: "combined" | VenueName = hasCombined ? "combined" : (currentReport.activeVenues[0] ?? "combined");
   const [selectedVenue, setSelectedVenue] = useState<"combined" | VenueName>(initialVenue);
   const visibleVenue = selectedVenue === "combined" && !hasCombined ? initialVenue : selectedVenue;
-  const venueSnapshot = visibleVenue === "combined" ? null : report.report[visibleVenue];
-  const metrics = visibleVenue === "combined" ? report.report.combined : (venueSnapshot?.metrics ?? report.report.combined);
+  const venueSnapshot = visibleVenue === "combined" ? null : currentReport[visibleVenue];
+  const metrics = visibleVenue === "combined" ? currentReport.combined : (venueSnapshot?.metrics ?? currentReport.combined);
   const venueLabel = visibleVenue === "combined" ? (isPortfolio ? "Portfolio" : "Combined") : visibleVenue === "hyperliquid" ? "Hyperliquid" : visibleVenue === "arcus" ? "Arcus" : "Lighter";
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -525,11 +510,15 @@ function ReportResult({
   const generatedAt = metrics.generatedAt ? date(metrics.generatedAt) : "Saved before freshness tracking";
   return (
     <section className="report-results">
+      {hasWalletSwitcher ? <nav className="report-wallet-rail" aria-label="Report wallet">
+        <button type="button" aria-current={selectedWallet === "all" ? "page" : undefined} onClick={() => { setSelectedWallet("all"); setSelectedVenue(report.report.activeVenues.length >= 2 ? "combined" : (report.report.activeVenues[0] ?? "combined")); }}>All wallets</button>
+        {report.walletReports!.map((item, index) => <button type="button" key={item.address} aria-current={selectedWallet === item.address ? "page" : undefined} onClick={() => { setSelectedWallet(item.address); setSelectedVenue(item.report.activeVenues.length >= 2 ? "combined" : (item.report.activeVenues[0] ?? "combined")); }}>Wallet {index + 1} <small>{item.address.slice(0, 6)}…{item.address.slice(-4)}</small></button>)}
+      </nav> : null}
       <nav className="report-venue-rail" aria-label="Report venue">
         {hasCombined ? <button type="button" data-venue="combined" aria-current={visibleVenue === "combined" ? "page" : undefined} onClick={() => setSelectedVenue("combined")}><span />Combined</button> : null}
-        {report.report.hyperliquid.active ? <button type="button" data-venue="hyperliquid" aria-current={visibleVenue === "hyperliquid" ? "page" : undefined} onClick={() => setSelectedVenue("hyperliquid")}><span />Hyperliquid</button> : null}
-        {report.report.arcus.active ? <button type="button" data-venue="arcus" aria-current={visibleVenue === "arcus" ? "page" : undefined} onClick={() => setSelectedVenue("arcus")}><span />Arcus</button> : null}
-        {report.report.lighter?.active ? <button type="button" data-venue="lighter" aria-current={visibleVenue === "lighter" ? "page" : undefined} onClick={() => setSelectedVenue("lighter")}><span />Lighter</button> : null}
+        {currentReport.hyperliquid.active ? <button type="button" data-venue="hyperliquid" aria-current={visibleVenue === "hyperliquid" ? "page" : undefined} onClick={() => setSelectedVenue("hyperliquid")}><span />Hyperliquid</button> : null}
+        {currentReport.arcus.active ? <button type="button" data-venue="arcus" aria-current={visibleVenue === "arcus" ? "page" : undefined} onClick={() => setSelectedVenue("arcus")}><span />Arcus</button> : null}
+        {currentReport.lighter?.active ? <button type="button" data-venue="lighter" aria-current={visibleVenue === "lighter" ? "page" : undefined} onClick={() => setSelectedVenue("lighter")}><span />Lighter</button> : null}
       </nav>
       <header className="report-result-intro">
         <p className="report-eyebrow">{venueLabel} read</p>
@@ -543,7 +532,7 @@ function ReportResult({
             {venueLabel} read
           </span>
           <small>
-            {isPortfolio ? `${report.addresses!.length} wallets` : `${report.address.slice(0, 6)}…${report.address.slice(-4)}`}
+            {isPortfolio ? `${report.addresses!.length} wallets` : `${currentAddress.slice(0, 6)}…${currentAddress.slice(-4)}`}
             <br />
             {date(metrics.dateFrom)} – {date(metrics.dateTo)} ·{" "}
             {metrics.fillCount} fills
@@ -591,7 +580,7 @@ function ReportResult({
           <Stat label="Markets" value={String(metrics.coinCount)} />
         </div>
         <div className="report-coverage">
-          <span><b>{confidence} confidence</b> · based on {positionCount || "an unknown number of"} completed positions{isPortfolio ? ` across ${report.addresses!.length} wallets` : visibleVenue === "combined" ? ` across ${report.report.activeVenues.length} venues` : ""}</span>
+          <span><b>{confidence} confidence</b> · based on {positionCount || "an unknown number of"} completed positions{isPortfolio ? ` across ${report.addresses!.length} wallets` : visibleVenue === "combined" ? ` across ${currentReport.activeVenues.length} venues` : ""}</span>
           <span>Checked {generatedAt}{metrics.historyLimited ? " · history limit reached" : ""}</span>
         </div>
         <footer className="report-card-foot">
@@ -668,7 +657,7 @@ function ReportResult({
         <a href="https://t.me/VivanLiveTeam" target="_blank" rel="noreferrer">Message Vivan on Telegram</a>
       </div>
       <div className="report-actions">
-        <a href={isPortfolio ? "/api/report/portfolio/pdf" : `/api/report/pdf?address=${encodeURIComponent(report.address)}`} download>Download PDF</a>
+        <a href={isPortfolio ? "/api/report/portfolio/pdf" : `/api/report/pdf?address=${encodeURIComponent(currentAddress)}`} download>Download PDF</a>
         <Link href="/journal">Open my trading journal</Link>
         <button className="report-link-button" type="button" onClick={refreshing ? onCancel : onRefresh} disabled={blocked}>
           {refreshing ? "Cancel refresh" : "Refresh this report"}

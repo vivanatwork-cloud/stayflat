@@ -7,7 +7,7 @@ import { getConvexToken } from "@/lib/convex-auth";
 import { LighterAuthError } from "@/lib/lighter/client";
 import { fetchWalletVenueSources, LighterTokenRequiredError } from "@/lib/report/fetch-wallet";
 import { buildMultiVenueMetrics, mergeVenueSources } from "@/lib/report/multi-venue";
-import { parseRequestedVenues } from "@/lib/report/venue-selection";
+import { parseRequestedVenues, requestedWalletVenues } from "@/lib/report/venue-selection";
 
 const walletPattern = /^0x[0-9a-fA-F]{40}$/;
 export const maxDuration = 120;
@@ -23,8 +23,8 @@ export async function POST(request: Request) {
     const body = await request.json() as { addresses?: unknown; lighterTokens?: unknown; venuesByAddress?: unknown; timezoneOffsetMinutes?: unknown };
     const rawAddresses: unknown[] = Array.isArray(body.addresses) ? body.addresses : [];
     const addresses: string[] = [...new Set(rawAddresses.filter((value): value is string => typeof value === "string").map((value) => value.toLowerCase()))];
-    if (addresses.length < 2 || addresses.some((address) => !walletPattern.test(address)))
-      return NextResponse.json({ error: "Select at least two valid saved wallet addresses." }, { status: 400 });
+    if (addresses.length < 2 || addresses.length > 10 || addresses.some((address) => !walletPattern.test(address)))
+      return NextResponse.json({ error: "Select 2 to 10 valid saved wallet addresses." }, { status: 400 });
     const access = await fetchQuery(api.payments.reportAccess, {}, { token });
     if (access.blocked)
       return NextResponse.json({ error: "Report generation is blocked for this account. Contact support if you think this is a mistake.", code: "ACCESS_BLOCKED" }, { status: 403 });
@@ -32,7 +32,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Portfolio reports can only include your saved wallets." }, { status: 403 });
     const lighterTokens = body.lighterTokens && typeof body.lighterTokens === "object" ? body.lighterTokens as Record<string, unknown> : {};
     const venuesByAddress = body.venuesByAddress && typeof body.venuesByAddress === "object" ? body.venuesByAddress as Record<string, unknown> : {};
-    const requestedVenues = addresses.map((address) => parseRequestedVenues(venuesByAddress[address]));
+    const requestedVenues = addresses.map((address) => {
+      const parsed = parseRequestedVenues(venuesByAddress[address]);
+      return parsed ? requestedWalletVenues(parsed.includes("lighter")) : null;
+    });
     if (requestedVenues.some((venues) => !venues))
       return NextResponse.json({ error: "Choose at least one supported exchange for every wallet." }, { status: 400 });
     const offset = typeof body.timezoneOffsetMinutes === "number" && Math.abs(body.timezoneOffsetMinutes) <= 840 ? body.timezoneOffsetMinutes : 0;

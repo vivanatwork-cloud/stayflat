@@ -242,6 +242,44 @@ export const recordPortfolioReport = mutation({
   },
 });
 
+export const recordReportBatch = mutation({
+  args: {
+    writeSecret: v.string(),
+    ownerId: v.string(),
+    reports: v.array(v.object({ address: v.string(), report: multiVenueMetricsValidator })),
+    portfolio: v.optional(v.object({ addresses: v.array(v.string()), report: multiVenueMetricsValidator })),
+  },
+  handler: async (ctx, args) => {
+    const expectedSecret = process.env.PAYMENT_WRITE_SECRET;
+    if (!expectedSecret || args.writeSecret !== expectedSecret) throw new Error("Unauthorized batch write");
+    const activeBlock = (await ctx.db.query("accessBlocks").withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId)).collect())
+      .some((record) => record.unblockedAt == null);
+    if (activeBlock) throw new Error("ACCESS_BLOCKED");
+    if (args.reports.length < 1 || args.reports.length > 10) throw new Error("BATCH_SIZE_INVALID");
+
+    const normalizedReports = args.reports.map((item) => ({ ...item, address: item.address.toLowerCase() }));
+    if (new Set(normalizedReports.map((item) => item.address)).size !== normalizedReports.length) throw new Error("DUPLICATE_WALLETS");
+    const existingWallets = await ctx.db.query("reportWallets").withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId)).collect();
+    const existingByAddress = new Map(existingWallets.map((wallet) => [wallet.address, wallet]));
+    const now = Date.now();
+    for (const item of normalizedReports) {
+      const existing = existingByAddress.get(item.address);
+      if (existing) await ctx.db.patch(existing._id, { report: item.report, updatedAt: now });
+      else await ctx.db.insert("reportWallets", { ownerId: args.ownerId, address: item.address, report: item.report, createdAt: now, updatedAt: now });
+    }
+
+    if (args.portfolio) {
+      const addresses = [...new Set(args.portfolio.addresses.map((address) => address.toLowerCase()))].toSorted();
+      if (addresses.length < 2 || addresses.length > 10) throw new Error("PORTFOLIO_ADDRESSES_INVALID");
+      const existingPortfolio = await ctx.db.query("portfolioReports").withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId)).first();
+      if (existingPortfolio) await ctx.db.patch(existingPortfolio._id, { addresses, report: args.portfolio.report, updatedAt: now });
+      else await ctx.db.insert("portfolioReports", { ownerId: args.ownerId, addresses, report: args.portfolio.report, createdAt: now, updatedAt: now });
+    }
+
+    return { saved: normalizedReports.length, portfolioSaved: Boolean(args.portfolio) };
+  },
+});
+
 export const recordReportWallet = mutation({
   args: {
     writeSecret: v.string(),

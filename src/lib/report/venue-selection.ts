@@ -17,3 +17,7 @@ export function parseRequestedVenues(
   }
   return venues;
 }
+
+export function requestedWalletVenues(includeLighter: boolean): VenueName[] {
+  return includeLighter ? ["hyperliquid", "arcus", "lighter"] : ["hyperliquid", "arcus"];
+}

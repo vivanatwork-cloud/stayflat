@@ -12,9 +12,9 @@ import { getConvexToken } from "@/lib/convex-auth";
 import { legacyMultiVenueMetrics } from "@/lib/report/multi-venue";
 
 export const metadata: Metadata = {
-  title: "Multi-venue Trading Read",
+  title: "Multi-wallet Trading Read",
   description:
-    "Read one wallet's Hyperliquid, Arcus, and Lighter perpetual trading history, separately and together.",
+    "Read up to ten wallets across Hyperliquid and Arcus, optionally add Lighter, and see individual and combined trading reports.",
 };
 
 export default async function Report({ searchParams }: { searchParams: Promise<{ address?: string; portfolio?: string }> }) {
