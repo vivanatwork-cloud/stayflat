@@ -46,6 +46,13 @@ export default defineSchema({
   })
     .index("by_owner", ["ownerId"])
     .index("by_owner_address", ["ownerId", "address"]),
+  portfolioReports: defineTable({
+    ownerId: v.string(),
+    addresses: v.array(v.string()),
+    report: multiVenueMetricsValidator,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_owner", ["ownerId"]),
   reportDownloads: defineTable({
     ownerId: v.string(),
     address: v.string(),

@@ -22,6 +22,20 @@ export type VenueSource = {
   unavailable?: boolean;
 };
 
+export function mergeVenueSources(sources: VenueSource[]): VenueSource {
+  const available = sources.filter((source) => !source.unavailable);
+  if (!available.length)
+    return { rawFills: [], portfolioPnl: null, portfolioVolume: null, historyLimited: false, unavailable: true };
+  const pnl = available.map((source) => source.portfolioPnl).filter((value): value is number => value != null);
+  const volume = available.map((source) => source.portfolioVolume).filter((value): value is number => value != null);
+  return {
+    rawFills: available.flatMap((source) => source.rawFills),
+    portfolioPnl: pnl.length ? pnl.reduce((sum, value) => sum + value, 0) : null,
+    portfolioVolume: volume.length === available.length ? volume.reduce((sum, value) => sum + value, 0) : null,
+    historyLimited: available.some((source) => source.historyLimited),
+  };
+}
+
 const emptyMetrics = (): ReportMetrics => computeMetrics([], null);
 
 export function buildMultiVenueMetrics(

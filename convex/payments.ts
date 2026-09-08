@@ -137,6 +137,14 @@ export const reportHistory = query({
   },
 });
 
+export const savedPortfolioReport = query({
+  args: {},
+  handler: async (ctx) => {
+    const ownerId = await requireOwnerId(ctx);
+    return ctx.db.query("portfolioReports").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).first();
+  },
+});
+
 export const savedReport = query({
   args: { address: v.string() },
   handler: async (ctx, args) => {
@@ -197,10 +205,33 @@ export const reportPageData = query({
         addresses: wallets.map((item) => item.address),
       },
       history,
+      portfolio: await ctx.db.query("portfolioReports").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).first(),
       saved: wallet?.report
         ? { address: wallet.address, report: wallet.report }
         : wallet?.metrics ? { address: wallet.address, metrics: wallet.metrics } : null,
     };
+  },
+});
+
+export const recordPortfolioReport = mutation({
+  args: {
+    writeSecret: v.string(),
+    ownerId: v.string(),
+    addresses: v.array(v.string()),
+    report: multiVenueMetricsValidator,
+  },
+  handler: async (ctx, args) => {
+    const expectedSecret = process.env.PAYMENT_WRITE_SECRET;
+    if (!expectedSecret || args.writeSecret !== expectedSecret) throw new Error("Unauthorized portfolio write");
+    const addresses = [...new Set(args.addresses.map((address) => address.toLowerCase()))].toSorted();
+    if (addresses.length < 2) throw new Error("PORTFOLIO_ADDRESSES_REQUIRED");
+    const existing = await ctx.db.query("portfolioReports").withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId)).first();
+    const now = Date.now();
+    if (existing) {
+      await ctx.db.patch(existing._id, { addresses, report: args.report, updatedAt: now });
+      return existing._id;
+    }
+    return ctx.db.insert("portfolioReports", { ownerId: args.ownerId, addresses, report: args.report, createdAt: now, updatedAt: now });
   },
 });
 

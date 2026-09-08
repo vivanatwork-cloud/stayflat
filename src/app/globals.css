@@ -1674,6 +1674,32 @@ textarea {
   padding-top: 30px;
   border-top: 1px solid var(--line);
 }
+.report-portfolio-builder {
+  grid-column: 1 / -1;
+  margin-bottom: 20px;
+  padding: 24px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--paper) 94%, var(--teal));
+  box-shadow: 0 0 0 1px rgba(20, 49, 42, 0.08), 0 8px 28px rgba(20, 49, 42, 0.06);
+}
+.report-portfolio-builder h2 { margin: 4px 0 8px; font-family: var(--font-display), serif; font-size: clamp(22px, 3vw, 30px); letter-spacing: -0.025em; }
+.report-portfolio-builder > p:not(.report-eyebrow) { max-width: 680px; margin: 0; color: var(--ink-soft); line-height: 1.55; }
+.report-portfolio-wallets { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin-top: 20px; }
+.report-portfolio-wallets label { display: flex; min-height: 44px; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--paper); box-shadow: inset 0 0 0 1px rgba(20, 49, 42, 0.1); cursor: pointer; }
+.report-portfolio-wallets input { width: 18px; height: 18px; accent-color: var(--teal); }
+.report-portfolio-wallets span { overflow: hidden; font-family: var(--font-mono), monospace; font-size: 12px; text-overflow: ellipsis; }
+.report-portfolio-token { display: grid; gap: 6px; margin-top: 14px; font-size: 12px; font-weight: 700; }
+.report-portfolio-token input { min-height: 44px; padding: 10px 12px; border: 1px solid rgba(20, 49, 42, 0.16); border-radius: 9px; background: var(--paper); color: var(--ink); font-family: var(--font-mono), monospace; }
+.report-portfolio-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.report-portfolio-actions button:first-child { min-height: 44px; padding: 11px 16px; border: 0; border-radius: 9px; background: var(--ink); color: var(--paper); font-weight: 750; cursor: pointer; }
+.report-portfolio-actions button:disabled { cursor: not-allowed; opacity: 0.45; }
+.report-portfolio-actions button:focus-visible, .report-portfolio-wallets label:has(input:focus-visible) { outline: 2px solid var(--teal); outline-offset: 2px; }
+[data-theme="dark"] .report-portfolio-builder { background: color-mix(in srgb, var(--paper) 96%, var(--teal)); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08); }
+@media (max-width: 640px) {
+  .report-portfolio-builder { padding: 18px; }
+  .report-portfolio-wallets { grid-template-columns: 1fr; }
+  .report-portfolio-actions { display: grid; }
+}
 .report-history-inline h2 {
   font-size: 27px;
 }

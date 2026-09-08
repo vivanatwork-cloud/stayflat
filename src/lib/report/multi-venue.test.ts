@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RawFill } from "@/lib/hyperliquid/metrics";
-import { buildMultiVenueMetrics } from "./multi-venue";
+import { buildMultiVenueMetrics, mergeVenueSources } from "./multi-venue";
 
 const pair = (venue: "hyperliquid" | "arcus" | "lighter", pnl: number, time: number): RawFill[] => [
   { venue, time, px: "100", sz: "1", closedPnl: "0", fee: "0", coin: "BTC", tid: `${venue}-open`, side: "B", dir: "Open Long", crossed: true },
@@ -8,6 +8,31 @@ const pair = (venue: "hyperliquid" | "arcus" | "lighter", pnl: number, time: num
 ];
 
 describe("buildMultiVenueMetrics", () => {
+  it("keeps positions on different wallets separate", () => {
+    const first = pair("hyperliquid", 10, 1).map((fill) => ({ ...fill, wallet: "0xaaa", tid: `a-${fill.tid}` }));
+    const second = pair("hyperliquid", -5, 2).map((fill) => ({ ...fill, wallet: "0xbbb", tid: `b-${fill.tid}` }));
+    const merged = mergeVenueSources([
+      { rawFills: first, portfolioPnl: 10, historyLimited: false },
+      { rawFills: second, portfolioPnl: -5, historyLimited: false },
+    ]);
+    const result = buildMultiVenueMetrics({
+      hyperliquid: merged,
+      arcus: { rawFills: [], portfolioPnl: null, historyLimited: false, unavailable: true },
+    });
+    expect(result.combined.empty).toBe(false);
+    if (!result.combined.empty) expect(result.combined.positionCount).toBe(2);
+  });
+
+  it("keeps matching trade IDs from different exchanges", () => {
+    const hyperliquid = pair("hyperliquid", 10, 1).map((fill) => ({ ...fill, tid: "shared" }));
+    const arcus = pair("arcus", 5, 2).map((fill) => ({ ...fill, tid: "shared" }));
+    const result = buildMultiVenueMetrics({
+      hyperliquid: { rawFills: hyperliquid, portfolioPnl: 10, historyLimited: false },
+      arcus: { rawFills: arcus, portfolioPnl: 5, historyLimited: false },
+    });
+    expect(result.combined.empty).toBe(false);
+    if (!result.combined.empty) expect(result.combined.fillCount).toBe(2);
+  });
   it("uses an exchange's authoritative volume when its trade rows are incomplete", () => {
     const result = buildMultiVenueMetrics({
       hyperliquid: { rawFills: [], portfolioPnl: null, historyLimited: false, unavailable: true },

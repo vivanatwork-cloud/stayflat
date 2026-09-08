@@ -17,18 +17,18 @@ export const metadata: Metadata = {
     "Read one wallet's Hyperliquid, Arcus, and Lighter perpetual trading history, separately and together.",
 };
 
-export default async function Report({ searchParams }: { searchParams: Promise<{ address?: string }> }) {
+export default async function Report({ searchParams }: { searchParams: Promise<{ address?: string; portfolio?: string }> }) {
   const session = await auth();
   const { userId } = session;
   if (!userId) redirect("/sign-in?redirect_url=/report");
-  const [{ address }, token] = await Promise.all([
+  const [{ address, portfolio }, token] = await Promise.all([
     searchParams,
     getConvexToken(session),
   ]);
   if (!token) redirect("/sign-in?redirect_url=/report");
   if (!process.env.NEXT_PUBLIC_CONVEX_URL)
     throw new Error("Report data is unavailable right now.");
-  const { access, history, saved } = await fetchQuery(
+  const { access, history, saved, portfolio: savedPortfolio } = await fetchQuery(
     api.payments.reportPageData,
     { address },
     { token },
@@ -58,6 +58,8 @@ export default async function Report({ searchParams }: { searchParams: Promise<{
           } : null}
           initialAddress={address || ""}
           initialHistory={history}
+          savedPortfolio={savedPortfolio ?? null}
+          openSavedPortfolio={portfolio === "1"}
         />
       </div>
     </main>

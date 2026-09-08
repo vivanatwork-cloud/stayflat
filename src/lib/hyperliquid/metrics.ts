@@ -1,5 +1,6 @@
 export type RawFill = {
   venue?: "hyperliquid" | "arcus" | "lighter";
+  wallet?: string;
   time: number | string;
   px: string;
   sz: string;
@@ -86,6 +87,7 @@ export type ReportMetrics = SnapshotFields & (
 
 type Fill = {
   venue: "hyperliquid" | "arcus" | "lighter";
+  wallet: string;
   time: number;
   price: number;
   size: number;
@@ -145,6 +147,7 @@ function normalizeFills(rawFills: RawFill[]) {
       dir: fill.dir || "",
       crossed: Boolean(fill.crossed),
       venue: fill.venue ?? "hyperliquid",
+      wallet: fill.wallet ?? "single-wallet",
     }))
     .filter((fill) => !fill.coin.startsWith("@") && !fill.coin.includes("/") && Number.isFinite(fill.time) && Number.isFinite(fill.price) && Number.isFinite(fill.size) && fill.size > 0)
     .filter((fill) => {
@@ -174,7 +177,7 @@ export function reconstructPositions(fills: Fill[]) {
 
   for (const fill of fills) {
     const signed = (fill.side === "B" ? 1 : -1) * fill.size;
-    const positionKey = `${fill.venue}:${fill.coin}`;
+    const positionKey = `${fill.wallet}:${fill.venue}:${fill.coin}`;
     const state = open.get(positionKey);
     if (!state) {
       if (fill.dir.toLowerCase().startsWith("close")) continue;

@@ -3,7 +3,7 @@ import type { ReportMetrics } from "@/lib/hyperliquid/metrics";
 import type { MultiVenueMetrics } from "@/lib/report/multi-venue";
 
 type FilledMetrics = Extract<ReportMetrics, { empty: false }>;
-export type ReportPdfInput = { address: string; metrics: FilledMetrics; report?: MultiVenueMetrics; accountEmail?: string };
+export type ReportPdfInput = { address: string; addresses?: string[]; metrics: FilledMetrics; report?: MultiVenueMetrics; accountEmail?: string };
 
 const ink = rgb(0.10, 0.14, 0.13);
 const muted = rgb(0.35, 0.40, 0.38);
@@ -58,7 +58,7 @@ function fitText(text: string, font: PDFFont, size: number, width: number) {
   return `${value}...`;
 }
 
-export async function buildReportPdf({ address, metrics, report, accountEmail }: ReportPdfInput) {
+export async function buildReportPdf({ address, addresses, metrics, report, accountEmail }: ReportPdfInput) {
   const document = await PDFDocument.create();
   const regular = await document.embedFont(StandardFonts.Helvetica);
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
@@ -87,12 +87,16 @@ export async function buildReportPdf({ address, metrics, report, accountEmail }:
   addPage();
   page.drawText("Your trading record, made readable.", { x: 48, y, size: 25, font: bold, color: ink });
   y -= 28;
-  page.drawText(`${address.slice(0, 10)}...${address.slice(-8)}  |  ${date(metrics.dateFrom)} - ${date(metrics.dateTo)}`, { x: 48, y, size: 10, font: regular, color: muted });
+  const identity = addresses && addresses.length > 1 ? `${addresses.length} wallets` : `${address.slice(0, 10)}...${address.slice(-8)}`;
+  page.drawText(`${identity}  |  ${date(metrics.dateFrom)} - ${date(metrics.dateTo)}`, { x: 48, y, size: 10, font: regular, color: muted });
   y -= 17;
   if (accountEmail) page.drawText(accountEmail, { x: 48, y, size: 9, font: regular, color: muted });
   y -= 38;
 
   heading("Report summary");
+  if (addresses && addresses.length > 1) {
+    for (const wallet of addresses) row("Included wallet", `${wallet.slice(0, 12)}...${wallet.slice(-10)}`);
+  }
   if (report && report.activeVenues.length >= 2) {
     const venueNames = report.activeVenues.map((venue) => venue === "hyperliquid" ? "Hyperliquid" : venue === "arcus" ? "Arcus" : "Lighter");
     row("View", `Combined | ${venueNames.join(" + ")}`);
@@ -132,7 +136,7 @@ export async function buildReportPdf({ address, metrics, report, accountEmail }:
     item.drawLine({ start: { x: 48, y: 776 }, end: { x: 547, y: 776 }, thickness: 0.6, color: line });
     item.drawText(`${index + 1} / ${pages.length}`, { x: 510, y: 32, size: 8, font: regular, color: muted });
   });
-  document.setTitle("StayFlat trading report");
+  document.setTitle(addresses && addresses.length > 1 ? "StayFlat portfolio report" : "StayFlat trading report");
   document.setAuthor("StayFlat");
   return document.save();
 }

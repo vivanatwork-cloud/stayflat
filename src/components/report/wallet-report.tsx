@@ -8,8 +8,9 @@ import type { ReportMetrics } from "@/lib/hyperliquid/metrics";
 import type { MultiVenueMetrics, VenueName } from "@/lib/report/multi-venue";
 
 type Access = { used: number; limit: number };
-type ReportResponse = { address: string; report: MultiVenueMetrics; access: Access };
+type ReportResponse = { address: string; addresses?: string[]; report: MultiVenueMetrics; access: Access };
 type HistoryItem = { address: string; metrics?: ReportMetrics; report?: MultiVenueMetrics; createdAt: number; updatedAt?: number };
+type SavedPortfolio = { addresses: string[]; report: MultiVenueMetrics; createdAt: number; updatedAt: number };
 const walletPattern = /^0x[0-9a-fA-F]{40}$/;
 const money = (value: number | null) =>
   value == null
@@ -54,7 +55,7 @@ function historySummary(item: HistoryItem) {
   return `${money(metrics.perpPnl)} all-time PnL · ${metrics.fillCount} fills${venues}`;
 }
 
-export function WalletReport({ initialAccess, initialReport = null, initialAddress = "", initialHistory = [] }: { initialAccess: Access; initialReport?: ReportResponse | null; initialAddress?: string; initialHistory?: HistoryItem[] }) {
+export function WalletReport({ initialAccess, initialReport = null, initialAddress = "", initialHistory = [], savedPortfolio = null, openSavedPortfolio = false }: { initialAccess: Access; initialReport?: ReportResponse | null; initialAddress?: string; initialHistory?: HistoryItem[]; savedPortfolio?: SavedPortfolio | null; openSavedPortfolio?: boolean }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const lighterTokenRef = useRef<HTMLInputElement>(null);
@@ -64,7 +65,7 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
   const [lighterToken, setLighterToken] = useState("");
   const [lighterTokenVisible, setLighterTokenVisible] = useState(false);
   const [lighterTokenNeeded, setLighterTokenNeeded] = useState(false);
-  const [report, setReport] = useState<ReportResponse | null>(initialReport);
+  const [report, setReport] = useState<ReportResponse | null>(() => openSavedPortfolio && savedPortfolio ? { address: savedPortfolio.addresses[0], addresses: savedPortfolio.addresses, report: savedPortfolio.report, access: initialAccess } : initialReport);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
   const [access, setAccess] = useState(initialAccess);
@@ -72,6 +73,9 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
   const [limitReached, setLimitReached] = useState(initialAccess.used >= initialAccess.limit);
   const [announcement, setAnnouncement] = useState("");
   const [reportReadyKey, setReportReadyKey] = useState(0);
+  const [selectedAddresses, setSelectedAddresses] = useState(() => initialHistory.map((item) => item.address));
+  const [portfolioTokens, setPortfolioTokens] = useState<Record<string, string>>({});
+  const [lighterWallets, setLighterWallets] = useState<string[]>([]);
   const normalizedAddress = address.trim().toLowerCase();
   const savedAddress = history.some(
     (item) => item.address.toLowerCase() === normalizedAddress,
@@ -153,6 +157,40 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
     await generate(value);
   }
 
+  async function generatePortfolio() {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    setStatus("loading");
+    setError("");
+    setAnnouncement(`Reading ${selectedAddresses.length} wallets.`);
+    try {
+      const response = await fetch("/api/report/portfolio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addresses: selectedAddresses, lighterTokens: portfolioTokens, timezoneOffsetMinutes: new Date().getTimezoneOffset() }),
+        signal: controller.signal,
+      });
+      const data = await response.json().catch(() => null) as { addresses?: string[]; report?: MultiVenueMetrics; error?: string; code?: string } | null;
+      if (!response.ok) {
+        if (data?.code === "LIGHTER_TOKENS_REQUIRED" && data.addresses) setLighterWallets(data.addresses);
+        throw new Error(data?.error || "We couldn't generate the portfolio report.");
+      }
+      if (!data?.addresses || !data.report) throw new Error("We couldn't generate the portfolio report.");
+      setReport({ address: data.addresses[0], addresses: data.addresses, report: data.report, access });
+      setStatus("idle");
+      setAnnouncement("Portfolio report ready.");
+      setReportReadyKey((key) => key + 1);
+      router.replace("/report?portfolio=1");
+    } catch (reason) {
+      if (controller.signal.aborted) { setStatus("idle"); return; }
+      setError(reason instanceof Error ? reason.message : "We couldn't generate the portfolio report.");
+      setStatus("error");
+    } finally {
+      if (requestRef.current === controller) requestRef.current = null;
+    }
+  }
+
   function reset() {
     requestRef.current?.abort();
     setReport(null);
@@ -170,7 +208,7 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
     <ReportResult
       report={report}
       onReset={reset}
-      onRefresh={() => generate(report.address)}
+      onRefresh={() => report.addresses && report.addresses.length > 1 ? generatePortfolio() : generate(report.address)}
       onCancel={() => requestRef.current?.abort()}
       refreshing={status === "loading"}
       error={error}
@@ -269,6 +307,24 @@ export function WalletReport({ initialAccess, initialReport = null, initialAddre
       </div>
       {history.length > 0 && (
         <section className="report-history-inline" aria-labelledby="past-reports-title">
+          {history.length >= 2 ? (
+            <div className="report-portfolio-builder">
+              <p className="report-eyebrow">Portfolio report</p>
+              <h2>Read your wallets as one book.</h2>
+              <p>Select at least two saved wallets. StayFlat rebuilds their trades together; this does not use another wallet slot.</p>
+              <div className="report-portfolio-wallets">
+                {history.map((item) => {
+                  const checked = selectedAddresses.includes(item.address);
+                  return <label key={item.address}><input type="checkbox" checked={checked} onChange={() => setSelectedAddresses((current) => checked ? current.filter((address) => address !== item.address) : [...current, item.address])} /><span>{item.address.slice(0, 8)}…{item.address.slice(-6)}</span></label>;
+                })}
+              </div>
+              {lighterWallets.map((wallet) => <label className="report-portfolio-token" key={wallet}><span>Lighter key for {wallet.slice(0, 8)}…{wallet.slice(-6)}</span><input type="password" value={portfolioTokens[wallet] ?? ""} onChange={(event) => setPortfolioTokens((current) => ({ ...current, [wallet]: event.target.value }))} placeholder="ro:…" autoComplete="off" /></label>)}
+              <div className="report-portfolio-actions">
+                <button type="button" onClick={generatePortfolio} disabled={selectedAddresses.length < 2 || status === "loading"}>{status === "loading" ? "Building portfolio…" : `Build portfolio · ${selectedAddresses.length} wallets`}</button>
+                {savedPortfolio ? <button type="button" className="report-link-button" onClick={() => { setReport({ address: savedPortfolio.addresses[0], addresses: savedPortfolio.addresses, report: savedPortfolio.report, access }); router.replace("/report?portfolio=1"); }}>View saved portfolio</button> : null}
+              </div>
+            </div>
+          ) : null}
           <div>
             <p className="report-eyebrow">Wallet history</p>
             <h2 id="past-reports-title">Your past reports</h2>
@@ -327,12 +383,13 @@ function ReportResult({
   readyKey: number;
 }) {
   const hasCombined = report.report.activeVenues.length >= 2;
+  const isPortfolio = Boolean(report.addresses && report.addresses.length > 1);
   const initialVenue: "combined" | VenueName = hasCombined ? "combined" : (report.report.activeVenues[0] ?? "combined");
   const [selectedVenue, setSelectedVenue] = useState<"combined" | VenueName>(initialVenue);
   const visibleVenue = selectedVenue === "combined" && !hasCombined ? initialVenue : selectedVenue;
   const venueSnapshot = visibleVenue === "combined" ? null : report.report[visibleVenue];
   const metrics = visibleVenue === "combined" ? report.report.combined : (venueSnapshot?.metrics ?? report.report.combined);
-  const venueLabel = visibleVenue === "combined" ? "Combined" : visibleVenue === "hyperliquid" ? "Hyperliquid" : visibleVenue === "arcus" ? "Arcus" : "Lighter";
+  const venueLabel = visibleVenue === "combined" ? (isPortfolio ? "Portfolio" : "Combined") : visibleVenue === "hyperliquid" ? "Hyperliquid" : visibleVenue === "arcus" ? "Arcus" : "Lighter";
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     if (readyKey > 0) headingRef.current?.focus();
@@ -440,7 +497,7 @@ function ReportResult({
             {venueLabel} read
           </span>
           <small>
-            {report.address.slice(0, 6)}…{report.address.slice(-4)}
+            {isPortfolio ? `${report.addresses!.length} wallets` : `${report.address.slice(0, 6)}…${report.address.slice(-4)}`}
             <br />
             {date(metrics.dateFrom)} – {date(metrics.dateTo)} ·{" "}
             {metrics.fillCount} fills
@@ -488,7 +545,7 @@ function ReportResult({
           <Stat label="Markets" value={String(metrics.coinCount)} />
         </div>
         <div className="report-coverage">
-          <span><b>{confidence} confidence</b> · based on {positionCount || "an unknown number of"} completed positions{visibleVenue === "combined" ? " across Hyperliquid and Arcus" : ""}</span>
+          <span><b>{confidence} confidence</b> · based on {positionCount || "an unknown number of"} completed positions{isPortfolio ? ` across ${report.addresses!.length} wallets` : visibleVenue === "combined" ? ` across ${report.report.activeVenues.length} venues` : ""}</span>
           <span>Checked {generatedAt}{metrics.historyLimited ? " · history limit reached" : ""}</span>
         </div>
         <footer className="report-card-foot">
@@ -565,7 +622,7 @@ function ReportResult({
         <a href="https://t.me/VivanLiveTeam" target="_blank" rel="noreferrer">Message Vivan on Telegram</a>
       </div>
       <div className="report-actions">
-        <a href={`/api/report/pdf?address=${encodeURIComponent(report.address)}`} download>Download PDF</a>
+        <a href={isPortfolio ? "/api/report/portfolio/pdf" : `/api/report/pdf?address=${encodeURIComponent(report.address)}`} download>Download PDF</a>
         <Link href="/journal">Open my trading journal</Link>
         <button className="report-link-button" type="button" onClick={refreshing ? onCancel : onRefresh} disabled={false}>
           {refreshing ? "Cancel refresh" : "Refresh this report"}
