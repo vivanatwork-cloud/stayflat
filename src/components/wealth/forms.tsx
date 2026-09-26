@@ -14,25 +14,36 @@ import { decimal, minor, transactionKey } from "@/lib/wealth/engine";
 import { download, importTransactions } from "@/lib/wealth/import";
 export type EntryKind =
   "account" | "holding" | "transaction" | "event" | "card";
-type Entry = Account | Holding | Transaction | RecurringEvent | Card;
+export type Entry = Account | Holding | Transaction | RecurringEvent | Card;
 export function EntryForm({
   kind,
   data,
   initial,
+  defaults,
+  affectCashInitially = true,
   onClose,
   commit,
 }: {
   kind: EntryKind;
   data: Data;
   initial?: Entry;
+  defaults?: Record<string, string>;
+  affectCashInitially?: boolean;
   onClose: () => void;
-  commit: (action: string, change: (d: Data) => void) => void;
+  commit: (
+    action: string,
+    change: (d: Data) => void,
+  ) => void | Promise<boolean>;
 }) {
   const [values, setValues] = useState<Record<string, string>>(() => ({
     name: "",
     institution: "",
     type: kind === "event" ? "Rent" : "Cash",
-    currency: kind === "holding" ? (data.accounts.find(a=>a.type!=="Cash"&&!a.archived)?.currency ?? "INR") : "INR",
+    currency:
+      kind === "holding"
+        ? (data.accounts.find((a) => a.type !== "Cash" && !a.archived)
+            ?.currency ?? "INR")
+        : "INR",
     ownership: "Personal",
     balance: "0",
     accountId:
@@ -56,12 +67,14 @@ export function EntryForm({
     spend: "0",
     due: "0",
     dueDate: new Date().toISOString().slice(0, 10),
+    ...defaults,
     ...Object.fromEntries(
       Object.entries(initial ?? {}).filter(([, v]) => typeof v === "string"),
     ),
   }));
   const [error, setError] = useState("");
-  const [affectCash, setAffectCash] = useState(true);
+  const [affectCash, setAffectCash] = useState(affectCashInitially);
+  const [saving, setSaving] = useState(false);
   const put = (key: string, v: string) =>
     setValues((p) => ({ ...p, [key]: v }));
   const input = (
@@ -95,9 +108,11 @@ export function EntryForm({
       />
     </Field>
   );
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (saving) return;
     setError("");
+    setSaving(true);
     try {
       const now = new Date().toISOString();
       const id = initial?.id ?? crypto.randomUUID();
@@ -184,57 +199,72 @@ export function EntryForm({
         if (minor(values.available) > minor(values.limit))
           throw new Error("Available limit cannot exceed the total limit.");
       }
-      commit(`${initial ? "Updated" : "Added"} ${kind}`, (d) => {
-        if (kind === "account") {
-          d.accounts = initial
-            ? d.accounts.map((a) => (a.id === id ? (entry as Account) : a))
-            : [...d.accounts, entry as Account];
-        } else if (kind === "holding") {
-          d.holdings = initial
-            ? d.holdings.map((h) => (h.id === id ? (entry as Holding) : h))
-            : [...d.holdings, entry as Holding];
-        } else if (kind === "transaction") {
-          const t = entry as Transaction;
-          d.transactions = initial
-            ? d.transactions.map((x) => (x.id === id ? t : x))
-            : [...d.transactions, t];
-          if (
-            affectCash &&
-            !initial &&
-            account?.type === "Cash" &&
-            t.direction !== "Transfer"
-          ) {
-            d.accounts = d.accounts.map((a) =>
-              a.id === t.accountId
-                ? {
-                    ...a,
-                    balance: decimal(
-                      minor(a.balance) +
-                        (t.direction === "Income" ? 1n : -1n) * minor(t.amount),
-                    ),
-                    updatedAt: now,
-                  }
-                : a,
-            );
-          }
-        } else if (kind === "event") {
-          d.events = initial
-            ? d.events.map((x) => (x.id === id ? (entry as RecurringEvent) : x))
-            : [...d.events, entry as RecurringEvent];
-        } else
-          d.cards = initial
-            ? d.cards.map((c) => (c.id === id ? (entry as Card) : c))
-            : [...d.cards, entry as Card];
-      });
+      const saved = await commit(
+        `${initial ? "Updated" : "Added"} ${kind}`,
+        (d) => {
+          if (kind === "account") {
+            d.accounts = initial
+              ? d.accounts.map((a) => (a.id === id ? (entry as Account) : a))
+              : [...d.accounts, entry as Account];
+          } else if (kind === "holding") {
+            d.holdings = initial
+              ? d.holdings.map((h) => (h.id === id ? (entry as Holding) : h))
+              : [...d.holdings, entry as Holding];
+          } else if (kind === "transaction") {
+            const t = entry as Transaction;
+            d.transactions = initial
+              ? d.transactions.map((x) => (x.id === id ? t : x))
+              : [...d.transactions, t];
+            if (
+              affectCash &&
+              !initial &&
+              account?.type === "Cash" &&
+              t.direction !== "Transfer"
+            ) {
+              d.accounts = d.accounts.map((a) =>
+                a.id === t.accountId
+                  ? {
+                      ...a,
+                      balance: decimal(
+                        minor(a.balance) +
+                          (t.direction === "Income" ? 1n : -1n) *
+                            minor(t.amount),
+                      ),
+                      updatedAt: now,
+                    }
+                  : a,
+              );
+            }
+          } else if (kind === "event") {
+            d.events = initial
+              ? d.events.map((x) =>
+                  x.id === id ? (entry as RecurringEvent) : x,
+                )
+              : [...d.events, entry as RecurringEvent];
+          } else
+            d.cards = initial
+              ? d.cards.map((c) => (c.id === id ? (entry as Card) : c))
+              : [...d.cards, entry as Card];
+        },
+      );
+      // Keep pending data in the main workspace on a failed cloud save; retry there.
+      if (saved === false) {
+        onClose();
+        return;
+      }
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Check these details.");
+    } finally {
+      setSaving(false);
     }
   }
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={() => {
+        if (!saving) onClose();
+      }}
       title={`${initial ? "Edit" : "Add"} ${kind}`}
       description={
         kind === "transaction"
@@ -347,10 +377,17 @@ export function EntryForm({
           </p>
         ) : null}
         <div className="form-actions">
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={saving}
+            onClick={onClose}
+          >
             Cancel
           </Button>
-          <Button type="submit">Save {kind}</Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? "Saving…" : `Save ${kind}`}
+          </Button>
         </div>
       </form>
     </Modal>
@@ -500,7 +537,6 @@ export function ImportForm({
                           ? {
                               ...x,
                               direction: direction as Transaction["direction"],
-
                             }
                           : x,
                       ),

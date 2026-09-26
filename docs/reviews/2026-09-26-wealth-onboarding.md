@@ -1,0 +1,11 @@
+# Guided Wealth onboarding
+
+Empty real workspaces now open a welcome screen and six guided steps: bank/cash accounts, investments, income/spending, bills/cards, personal goal, and review. Existing users can opt in from Overview. Users can go back, skip a section, pause and resume, and reopen completed setup. Progress is stored in their private Convex settings; no financial data or setup state is written to browser storage.
+
+The guide reuses manual entry and CSV import, prefills suitable account types, shows only server-confirmed saved records, and offers record editing. Investment accounts with no holdings are called out. Past transaction entry starts with cash-balance adjustment off to avoid counting payments twice against a current bank balance. Foreign currency records require the user to verify the USD-to-INR conversion rate at review. The interface explains that calendar entries are not automatic expenses/notifications and that the headline total excludes debts.
+
+Setup navigation uses confirmed data, so network failures cannot silently advance or finish the guide. Existing retry and backup actions remain accessible. Metadata-only steps do not add financial-history snapshots. Entry forms now await their save; pending failed records remain in the workspace for retry/export.
+
+Validation: 166 tests pass. Headless Chrome completed every step with real form entry, including cash, USD investment account/holding, income without double counting cash, regular payment, card, custom goal, and verified exchange rate. Tested failed start and finish saves, retry, editing without duplicate accounts, pause/resume across reload, skip-all, completion persistence, no financial localStorage writes, and 390 px mobile overflow. Desktop light and mobile light/dark screenshots inspected; no browser errors. Browser storage calls were mocked; backend authorization/persistence tests remain separate. Temporary preview route removed before release.
+
+Production build passes. Convex deployed to the existing StayFlat production backend. Vercel release `dpl_3L9tXRwyLDeBvnrChovbjkj76ge7` is READY and verified as the stayflat.xyz target; signed-out /wealth redirects to sign-in and /api/wealth rejects access with 401.

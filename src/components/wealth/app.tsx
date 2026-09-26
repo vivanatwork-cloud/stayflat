@@ -59,6 +59,8 @@ import {
 } from "./records";
 import { Insights } from "./insights";
 import { HoldingsImport } from "./holdings-import";
+import { WealthOnboarding } from "./onboarding";
+import { shouldShowSetup, updateSetup } from "@/lib/wealth/onboarding";
 const groups = [
   {
     label: "WORKSPACE",
@@ -190,9 +192,31 @@ export default function WealthApp({ ownerId }: { ownerId: string }) {
   const data = workspace.data;
   const money = (v: bigint | string, currency = "INR", compact = false) =>
     formatMoney(v, currency, hidden, compact);
-  const commit = (action: string, change: (d: Data) => void) => {
-    store.commit(action, change);
+  const commit = (
+    action: string,
+    change: (d: Data) => void,
+    options?: { snapshot?: boolean },
+  ) => {
+    return store.commit(action, change, options);
   };
+  const guided = mode === "local" && shouldShowSetup(store.confirmedData);
+  async function resumeSetup() {
+    try {
+      await commit(
+        "Opened guided setup",
+        (d) =>
+          updateSetup(
+            d,
+            d.onboarding?.completedAt
+              ? "cash"
+              : (d.onboarding?.step ?? "welcome"),
+          ),
+        { snapshot: false },
+      );
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
   const edit = (kind: EntryKind, initial?: any) => {
     if (hidden) {
       toast.info("Show amounts before editing financial records.");
@@ -283,13 +307,25 @@ export default function WealthApp({ ownerId }: { ownerId: string }) {
                   ? "STAYFLAT / WEALTH"
                   : "STAYFLAT / WEALTH"}
               </div>
-              <h1>{page === "AI" ? "Ask your records" : page}</h1>
+              <h1>
+                {page === "Overview" && guided && !hidden
+                  ? "Your Wealth setup"
+                  : page === "AI"
+                    ? "Ask your records"
+                    : page}
+              </h1>
               <p>
                 {labels[page] ??
                   "Your latest balances and the details behind them."}
               </p>
             </div>
-            <div className="page-actions">
+            <div
+              className="page-actions"
+              style={{
+                display:
+                  guided && page === "Overview" && !hidden ? "none" : undefined,
+              }}
+            >
               {page === "Overview" || page === "Assets" ? (
                 <Choice
                   value={owner}
@@ -378,15 +414,51 @@ export default function WealthApp({ ownerId }: { ownerId: string }) {
           ) : null}
           {!ready ? (
             <div className="loading-state">Opening your workspace…</div>
-          ) : page === "Overview" ? (
-            <Overview
+          ) : page === "Overview" && guided && !hidden ? (
+            <WealthOnboarding
               data={data}
-              owner={owner}
-              hidden={hidden}
-              money={money}
-              navigate={navigate}
-              add={() => edit("account")}
+              confirmedData={store.confirmedData}
+              status={store.status}
+              commit={commit}
             />
+          ) : page === "Overview" ? (
+            <>
+              {mode === "local" ? (
+                <div className="setup-resume">
+                  <div>
+                    <strong>
+                      {store.confirmedData.onboarding?.completedAt
+                        ? "Your setup, at your pace."
+                        : "Build your money picture, one step at a time."}
+                    </strong>
+                    <p>
+                      {store.confirmedData.onboarding?.paused
+                        ? "Your progress is saved. Pick up where you left off."
+                        : "A guided check of your accounts, investments, payments and goals."}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    disabled={store.status !== "saved" || hidden}
+                    onClick={resumeSetup}
+                  >
+                    {store.confirmedData.onboarding?.completedAt
+                      ? "Review setup"
+                      : store.confirmedData.onboarding?.paused
+                        ? "Resume setup"
+                        : "Start guided setup"}
+                  </Button>
+                </div>
+              ) : null}
+              <Overview
+                data={data}
+                owner={owner}
+                hidden={hidden}
+                money={money}
+                navigate={navigate}
+                add={() => edit("account")}
+              />
+            </>
           ) : page === "Calendar" ? (
             <CalendarView data={data} money={money} edit={edit} />
           ) : page === "Credit Cards" ? (

@@ -10,6 +10,7 @@ export { validateWorkspace } from "./validate";
 const blank = (): Workspace => ({ version: 1, data: emptyData(), audit: [] });
 export function useWorkspace(ownerId: string) {
   const [workspace, setWorkspace] = useState<Workspace>(blank);
+  const [confirmedData, setConfirmedData] = useState<Data>(() => emptyData());
   const [mode, setMode] = useState<"local" | "demo">("local");
   const [ready, setReady] = useState(false),
     [error, setError] = useState("");
@@ -51,6 +52,7 @@ export function useWorkspace(ownerId: string) {
         if (controller.signal.aborted) return;
         revision.current = result.revision;
         saved.current = next;
+        setConfirmedData(next.data);
         show(next);
         setReady(true);
         setStatus("saved");
@@ -104,9 +106,10 @@ export function useWorkspace(ownerId: string) {
       const result = await response.json();
       if (!response.ok)
         throw new Error(result.error || "Your changes have not been saved.");
-      if (!active.current) return;
+      if (!active.current) return false;
       revision.current = result.revision;
       saved.current = next;
+      setConfirmedData(next.data);
       unsaved.current = false;
       setStatus("saved");
       if (migration.current) {
@@ -120,6 +123,7 @@ export function useWorkspace(ownerId: string) {
         }
         migration.current = false;
       }
+      return true;
     } catch (e) {
       if (active.current) {
         setError(
@@ -128,6 +132,7 @@ export function useWorkspace(ownerId: string) {
         );
         setStatus("error");
       }
+      return false;
     } finally {
       busy.current = false;
     }
@@ -142,15 +147,19 @@ export function useWorkspace(ownerId: string) {
   function apply(next: Workspace) {
     encodeWealth(next.data);
     show(next);
-    if (mode === "local") void persist(next);
+    return mode === "local" ? persist(next) : Promise.resolve(true);
   }
-  function commit(action: string, change: (d: Data) => void) {
+  function commit(
+    action: string,
+    change: (d: Data) => void,
+    options?: { snapshot?: boolean },
+  ) {
     ensureEditable();
     const prev = current.current;
     const data = structuredClone(prev.data);
     change(data);
-    data.snapshots.push(snapshot(data));
-    apply({
+    if (options?.snapshot !== false) data.snapshots.push(snapshot(data));
+    return apply({
       version: 1,
       data,
       audit: [
@@ -213,6 +222,7 @@ export function useWorkspace(ownerId: string) {
   }
   return {
     workspace,
+    confirmedData,
     mode,
     ready,
     error,

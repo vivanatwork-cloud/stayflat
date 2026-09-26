@@ -87,6 +87,7 @@ export interface Card {
   updatedAt: string;
 }
 export interface Data {
+  onboarding?: import("./onboarding").SetupProgress;
   holdingHistory?: {
     id: string;
     date: string;
