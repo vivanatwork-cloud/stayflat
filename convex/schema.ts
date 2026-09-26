@@ -4,6 +4,8 @@ import { tradeValidator } from "./journalValidators";
 import { onboardingAnswersValidator } from "./onboardingValidators";
 import { multiVenueMetricsValidator, reportMetricsValidator } from "./reportValidators";
 export default defineSchema({
+  wealthSettings: defineTable({ownerId:v.string(), settings:v.string(), revision:v.number(), updatedAt:v.number()}).index("by_owner",["ownerId"]),
+  wealthRecords: defineTable({ownerId:v.string(), kind:v.string(), recordId:v.string(), part:v.number(), payload:v.string()}).index("by_owner",["ownerId"]).index("by_owner_kind",["ownerId","kind"]),
   trades: defineTable({
     wallet: v.string(),
     market: v.string(),

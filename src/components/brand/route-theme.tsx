@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 
 const supportsDarkMode = (pathname: string) =>
-  ["/report", "/onboarding", "/journal"].some(
+  ["/report", "/onboarding", "/journal", "/wealth"].some(
     (route) => pathname === route || pathname.startsWith(`${route}/`),
   );
 

@@ -62,7 +62,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var p=location.pathname;var a=p==='/report'||p.indexOf('/report/')===0||p==='/onboarding'||p.indexOf('/onboarding/')===0||p==='/journal'||p.indexOf('/journal/')===0;var t='light';if(a){t=localStorage.getItem('stayflat_theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t}catch(e){}})()` }} />
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var p=location.pathname;var a=p==='/wealth'||p.indexOf('/wealth/')===0||p==='/report'||p.indexOf('/report/')===0||p==='/onboarding'||p.indexOf('/onboarding/')===0||p==='/journal'||p.indexOf('/journal/')===0;var t='light';if(a){t=localStorage.getItem('stayflat_theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t}catch(e){}})()` }} />
       </head>
       <body
         className={`${newsreader.variable} ${hankenGrotesk.variable} ${jetBrainsMono.variable}`}

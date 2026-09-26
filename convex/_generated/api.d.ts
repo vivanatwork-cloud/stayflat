@@ -18,6 +18,7 @@ import type * as onboardingValidators from "../onboardingValidators.js";
 import type * as payments from "../payments.js";
 import type * as reportValidators from "../reportValidators.js";
 import type * as trades from "../trades.js";
+import type * as wealth from "../wealth.js";
 
 import type {
   ApiFromModules,
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   payments: typeof payments;
   reportValidators: typeof reportValidators;
   trades: typeof trades;
+  wealth: typeof wealth;
 }>;
 
 /**

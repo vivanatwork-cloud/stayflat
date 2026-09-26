@@ -40,6 +40,9 @@ import {
 } from "@/components/wealth/ui-kit/sidebar";
 import { Toaster } from "@/components/wealth/ui-kit/sonner";
 import { toast } from "sonner";
+import { FlatlineMark } from "@/components/brand/flatline-mark";
+import { ThemeToggle } from "@/components/brand/theme-toggle";
+import { AccountMenu } from "@/components/brand/account-menu";
 import { useWorkspace } from "@/lib/wealth/store";
 import { formatMoney } from "@/lib/wealth/engine";
 import type { Data, Ownership } from "@/lib/wealth/types";
@@ -112,19 +115,15 @@ function Navigation({
     <Sidebar className="wealth-sidebar">
       <SidebarHeader>
         <button className="brand" onClick={() => go("Overview")}>
-          <span className="brand-symbol">
-            <i />
-            <i />
-            <i />
-          </span>
+          <FlatlineMark />
           <span>
-            wealth<span className="brand-os">OS</span>
+            StayFlat<span className="brand-os">.</span>
           </span>
         </button>
         <div className="workspace-name">
-          <span className="avatar">V</span>
+          <Wallet size={18} />
           <div>
-            <b>My workspace</b>
+            <b>Wealth</b>
             <small>Personal & business</small>
           </div>
         </div>
@@ -141,8 +140,7 @@ function Navigation({
                     onClick={() => go(name)}
                   >
                     <Icon size={17} />
-                    <span>{name === "AI" ? "Ask WealthOS" : name}</span>
-                    {name === "AI" ? <span className="nav-new">✧</span> : null}
+                    <span>{name === "AI" ? "Ask your records" : name}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -165,7 +163,7 @@ function Navigation({
         <div className="sidebar-foot">
           <span>
             <LockKeyhole size={12} />
-            {mode === "demo" ? "Sample workspace" : "Saved in this browser"}
+            {mode === "demo" ? "Sample workspace" : "Private account storage"}
           </span>
           <button onClick={switchMode} title="Switch workspace">
             <ArrowLeftRight size={14} />
@@ -175,7 +173,7 @@ function Navigation({
     </Sidebar>
   );
 }
-export default function WealthApp({ownerId}:{ownerId:string}) {
+export default function WealthApp({ ownerId }: { ownerId: string }) {
   const store = useWorkspace(ownerId);
   const { workspace, mode, ready, error } = store;
   const [page, setPage] = useState("Overview");
@@ -194,7 +192,6 @@ export default function WealthApp({ownerId}:{ownerId:string}) {
     formatMoney(v, currency, hidden, compact);
   const commit = (action: string, change: (d: Data) => void) => {
     store.commit(action, change);
-    toast.success(action);
   };
   const edit = (kind: EntryKind, initial?: any) => {
     if (hidden) {
@@ -226,7 +223,7 @@ export default function WealthApp({ownerId}:{ownerId:string}) {
       Date.now() - new Date(a.updatedAt).getTime() > data.staleDays * 86400000,
   ).length;
   const labels: Record<string, string> = {
-    Overview: "Your wealth, in perspective.",
+    Overview: "Your accounts, investments and cash, together.",
     Assets: "Every holding. One clear picture.",
     Cash: "Know what is available.",
     Income: "See what your work brings in.",
@@ -251,10 +248,12 @@ export default function WealthApp({ownerId}:{ownerId:string}) {
             <SidebarTrigger className="mobile-menu" />
             <span>Workspace</span>
             <ChevronRight size={13} />
-            <b>{page === "AI" ? "Ask WealthOS" : page}</b>
+            <b>{page === "AI" ? "Ask your records" : page}</b>
           </div>
           <div className="topbar-actions">
-              <a className="stayflat-back" href="/admin">StayFlat ↗</a>
+            <a className="stayflat-back" href="/report">
+              Wallet analytics ↗
+            </a>
             <span className="today">
               {new Date().toLocaleDateString("en-IN", {
                 day: "numeric",
@@ -270,7 +269,10 @@ export default function WealthApp({ownerId}:{ownerId:string}) {
             >
               {hidden ? <EyeOff size={17} /> : <Eye size={17} />}
             </Button>
-            <span className="avatar small-avatar">V</span>
+            <ThemeToggle />
+            {process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? (
+              <AccountMenu accessConfirmed showFeedbackPrompt={false} />
+            ) : null}
           </div>
         </header>
         <div className="workspace-body">
@@ -278,10 +280,10 @@ export default function WealthApp({ownerId}:{ownerId:string}) {
             <div>
               <div className="page-eyebrow">
                 {page === "Overview"
-                  ? "THE BIG PICTURE"
-                  : "YOUR FINANCIAL WORKSPACE"}
+                  ? "STAYFLAT / WEALTH"
+                  : "STAYFLAT / WEALTH"}
               </div>
-              <h1>{page === "AI" ? "Ask WealthOS" : page}</h1>
+              <h1>{page === "AI" ? "Ask your records" : page}</h1>
               <p>
                 {labels[page] ??
                   "Your latest balances and the details behind them."}
@@ -303,7 +305,12 @@ export default function WealthApp({ownerId}:{ownerId:string}) {
               <Button
                 variant="outline"
                 onClick={() => {
-                  if (hidden) { toast.info("Show amounts before importing financial records."); return; }
+                  if (hidden) {
+                    toast.info(
+                      "Show amounts before importing financial records.",
+                    );
+                    return;
+                  }
                   if (!data.accounts.some((a) => a.type === "Cash")) {
                     toast.info("Create a cash account before importing.");
                     edit("account");
@@ -332,7 +339,13 @@ export default function WealthApp({ownerId}:{ownerId:string}) {
               <span className="status-dot" />
               {mode === "demo"
                 ? "Demo workspace · all figures are examples"
-                : "Local workspace · data stays in this browser"}
+                : store.status === "saving"
+                  ? "Saving to your account…"
+                  : store.status === "error"
+                    ? "Changes not saved"
+                    : store.status === "loading"
+                      ? "Opening your account…"
+                      : "Saved to your StayFlat account"}
               {stale
                 ? ` · ${stale} source${stale > 1 ? "s" : ""} need an update`
                 : ""}
@@ -348,7 +361,19 @@ export default function WealthApp({ownerId}:{ownerId:string}) {
           </div>
           {error ? (
             <div className="error" role="alert">
-              {error}
+              {error}{" "}
+              <Button variant="outline" onClick={store.retry}>
+                Retry
+              </Button>
+              <Button variant="outline" onClick={() => setPage("Data Sources")}>
+                Export backup
+              </Button>
+            </div>
+          ) : null}
+          {store.legacy ? (
+            <div className="workspace-banner migration-notice">
+              <span>An older copy of your records exists in this browser.</span>
+              <Button onClick={store.migrate}>Move to my account</Button>
             </div>
           ) : null}
           {!ready ? (
@@ -373,11 +398,18 @@ export default function WealthApp({ownerId}:{ownerId:string}) {
               workspace={workspace}
               money={money}
               commit={commit}
-              openImport={() => hidden ? toast.info("Show amounts before importing.") : setImportOpen(true)}
+              openImport={() =>
+                hidden
+                  ? toast.info("Show amounts before importing.")
+                  : setImportOpen(true)
+              }
               restore={store.restore}
               undo={() => {
-                store.undo();
-                toast.success("Latest change undone");
+                try {
+                  store.undo();
+                } catch (e) {
+                  toast.error((e as Error).message);
+                }
               }}
             />
           ) : page === "AI" ? (
@@ -390,7 +422,11 @@ export default function WealthApp({ownerId}:{ownerId:string}) {
           ) : (
             <>
               <Records
-                importHoldings={() => hidden ? toast.info("Show amounts before importing.") : setHoldingsImportOpen(true)}
+                importHoldings={() =>
+                  hidden
+                    ? toast.info("Show amounts before importing.")
+                    : setHoldingsImportOpen(true)
+                }
                 key={page}
                 page={page}
                 data={data}
@@ -406,7 +442,7 @@ export default function WealthApp({ownerId}:{ownerId:string}) {
           )}
           <footer className="workspace-footer">
             <span>
-              WealthOS <span>·</span> A clearer view of your money.
+              StayFlat <span>·</span> Know where you stand.
             </span>
             <span>
               {mode === "demo"
@@ -472,12 +508,18 @@ export default function WealthApp({ownerId}:{ownerId:string}) {
         }
       >
         <p className="muted">
-          Records are currently saved in this browser. Export regular backups
-          from Data sources. You are signed in through StayFlat. Financial records remain in this browser.
+          Your records are saved privately to your StayFlat account. Sign in on
+          another device to pick up where you left off. Example records are
+          never saved to your account.
         </p>
         <Button
           onClick={() => {
-            store.switchMode(mode === "demo" ? "local" : "demo");
+            try {
+              store.switchMode(mode === "demo" ? "local" : "demo");
+            } catch (e) {
+              toast.error((e as Error).message);
+              return;
+            }
             setSwitchOpen(false);
             setPage("Overview");
           }}
@@ -488,16 +530,18 @@ export default function WealthApp({ownerId}:{ownerId:string}) {
       <Modal
         open={privacyNotice}
         onClose={() => setPrivacyNotice(false)}
-        title="About your local workspace"
-        description="Your records are saved on this device."
+        title="Your records, in your account"
+        description="Available wherever you sign in to StayFlat."
       >
         <p>
-          Browser storage is not a cloud backup. Clearing browser data removes
-          the local copy. Use Data sources → Full backup to keep a copy of your
-          records.
+          Your financial records are stored in StayFlat’s database, linked to
+          your signed-in account. Other members cannot read them. Clearing
+          browser data does not delete saved records.
         </p>
         <p>
-          StayFlat sign-in protects this page. Financial records stay in this browser; cloud sync is not enabled.
+          Wait for “Saved to your StayFlat account” before leaving. Undo is
+          available for changes made in this session. You can export your
+          records and original statements from Data sources.
         </p>
       </Modal>
       {holdingsImportOpen ? (

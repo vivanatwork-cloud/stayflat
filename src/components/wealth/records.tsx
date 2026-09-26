@@ -828,7 +828,14 @@ export function SourcesView({
           </p>
         ) : null}
       </Panel>
-      <Panel title="Your StayFlat workspace"><p className="muted">Access is protected by your StayFlat account. Financial records stay in this browser. Use a full backup to move records between devices or import a backup from the original WealthOS site.</p></Panel>
+      <Panel title="Your StayFlat workspace">
+        <p className="muted">
+          Your records and imported statements are stored privately in your
+          StayFlat account. Sign in on another device to access them. You can
+          also export a backup or bring over a backup from the original WealthOS
+          site.
+        </p>
+      </Panel>
       <div className="source-grid">
         <Panel title="Your data, yours to keep">
           <div className="export-actions">
@@ -898,11 +905,11 @@ export function SourcesView({
           </div>
           <p className="hint">
             A full backup includes holdings, accounts, history and original CSV
-            files. Restoring replaces this browser’s real workspace.
+            files. Restoring replaces the records saved to your account.
           </p>
         </Panel>
         <Panel
-          title="Change history"
+          title="This session’s changes"
           aside={
             <Button
               variant="ghost"

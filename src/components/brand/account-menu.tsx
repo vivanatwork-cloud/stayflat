@@ -1,10 +1,9 @@
 "use client";
 
-import { UserButton, useUser } from "@clerk/nextjs";
+import { UserButton } from "@clerk/nextjs";
 import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../../../convex/_generated/api";
-import { isAdminEmail } from "@/lib/admin";
 import { FeedbackGroupPrompt } from "./feedback-group-prompt";
 
 function ReportIcon() {
@@ -52,8 +51,6 @@ export function AccountMenu({
   showFeedbackPrompt?: boolean;
 }) {
   const { isAuthenticated } = useConvexAuth();
-  const { user } = useUser();
-  const wealthAllowed = user?.primaryEmailAddress?.verification?.status === "verified" && isAdminEmail(user.primaryEmailAddress.emailAddress);
   const knownPaid = accessConfirmed ? true : initialHasPaid;
   const [recoveredHasPaid, setRecoveredHasPaid] = useState<boolean | undefined>(
     knownPaid,
@@ -93,7 +90,7 @@ export function AccountMenu({
   return <>
     <UserButton>
       <UserButton.MenuItems>
-        {wealthAllowed ? <UserButton.Link label="WealthOS" labelIcon={<ReportIcon />} href="/wealth" /> : null}
+        <UserButton.Link label="Wealth" labelIcon={icon(<ReportIcon />)} href={destination("/wealth")} />
         <UserButton.Link label="Trading journal" labelIcon={icon(<JournalIcon />)} href={destination("/journal")} />
         <UserButton.Link label="Wallet Analytics" labelIcon={<ReportIcon />} href="/report" />
         <UserButton.Link label="Schedule a call" labelIcon={icon(<MessageIcon />)} href={destination("https://t.me/VivanLiveTeam")} />
