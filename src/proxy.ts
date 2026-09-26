@@ -4,6 +4,7 @@ import { getSafeHandshakeRedirect } from "@/lib/clerk-handshake";
 
 const isProtectedRoute = createRouteMatcher([
   "/admin(.*)",
+  "/wealth(.*)",
   "/onboarding(.*)",
   "/journal(.*)",
   "/payment(.*)",
