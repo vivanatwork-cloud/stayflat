@@ -6,33 +6,21 @@ import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../../../convex/_generated/api";
 import { FeedbackGroupPrompt } from "./feedback-group-prompt";
 
-function ReportIcon() {
+function MenuEmoji({ children }: { children: ReactNode }) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="none">
-      <path d="M3 13V8m5 5V3m5 10V6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function JournalIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="none">
-      <path d="M4 2.5h8v11H4zM6.5 6h3M6.5 9h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function MessageIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="none">
-      <path d="M2.5 3.5h11v7h-6l-3.5 2v-2H2.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-    </svg>
+    <span className="account-menu-emoji" aria-hidden="true">
+      {children}
+    </span>
   );
 }
 
 function LockIcon() {
   return (
-    <span className="account-lock" aria-label="Unlock after payment" tabIndex={0}>
+    <span
+      className="account-lock"
+      aria-label="Unlock after payment"
+      tabIndex={0}
+    >
       <span aria-hidden="true">🔒</span>
       <span className="account-lock-tooltip" role="tooltip">
         Unlock after payment
@@ -69,7 +57,7 @@ export function AccountMenu({
           signal: controller.signal,
         });
         if (response.ok) {
-          const result = await response.json() as { hasPaid?: boolean };
+          const result = (await response.json()) as { hasPaid?: boolean };
           if (!controller.signal.aborted) {
             setRecoveredHasPaid(result.hasPaid === true);
           }
@@ -84,18 +72,56 @@ export function AccountMenu({
 
   const paid = knownPaid ?? recoveredHasPaid ?? hasPaid;
   const locked = paid !== true;
-  const destination = (unlockedHref: string) => locked ? "/payment" : unlockedHref;
-  const icon = (unlockedIcon: ReactNode) => locked ? <LockIcon /> : unlockedIcon;
+  const destination = (unlockedHref: string) =>
+    locked ? "/payment" : unlockedHref;
+  const icon = (unlockedIcon: ReactNode) =>
+    locked ? <LockIcon /> : unlockedIcon;
 
-  return <>
-    <UserButton>
-      <UserButton.MenuItems>
-        <UserButton.Link label="Wealth" labelIcon={icon(<ReportIcon />)} href={destination("/wealth")} />
-        <UserButton.Link label="Trading journal" labelIcon={icon(<JournalIcon />)} href={destination("/journal")} />
-        <UserButton.Link label="Wallet Analytics" labelIcon={<ReportIcon />} href="/report" />
-        <UserButton.Link label="Schedule a call" labelIcon={icon(<MessageIcon />)} href={destination("https://t.me/VivanLiveTeam")} />
-      </UserButton.MenuItems>
-    </UserButton>
-    {showFeedbackPrompt ? <FeedbackGroupPrompt hasPaid={paid === true} /> : null}
-  </>;
+  return (
+    <>
+      <UserButton
+        appearance={{
+          elements: {
+            userButtonPopoverActionButtonIconBox__manageAccount:
+              "account-menu-manage-emoji",
+            userButtonPopoverActionButtonIcon__manageAccount: {
+              display: "none",
+            },
+            userButtonPopoverActionButtonIconBox__signOut:
+              "account-menu-signout-emoji",
+            userButtonPopoverActionButtonIcon__signOut: { display: "none" },
+            userButtonPopoverActionButtonIconBox__signOutAll:
+              "account-menu-signout-emoji",
+            userButtonPopoverActionButtonIcon__signOutAll: { display: "none" },
+          },
+        }}
+      >
+        <UserButton.MenuItems>
+          <UserButton.Link
+            label="Wealth"
+            labelIcon={icon(<MenuEmoji>🌱</MenuEmoji>)}
+            href={destination("/wealth")}
+          />
+          <UserButton.Link
+            label="Trading journal"
+            labelIcon={icon(<MenuEmoji>📓</MenuEmoji>)}
+            href={destination("/journal")}
+          />
+          <UserButton.Link
+            label="Wallet Analytics"
+            labelIcon={<MenuEmoji>🔎</MenuEmoji>}
+            href="/report"
+          />
+          <UserButton.Link
+            label="Schedule a call"
+            labelIcon={icon(<MenuEmoji>🗓️</MenuEmoji>)}
+            href={destination("https://t.me/VivanLiveTeam")}
+          />
+        </UserButton.MenuItems>
+      </UserButton>
+      {showFeedbackPrompt ? (
+        <FeedbackGroupPrompt hasPaid={paid === true} />
+      ) : null}
+    </>
+  );
 }

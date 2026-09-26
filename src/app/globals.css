@@ -2718,3 +2718,8 @@ textarea {
   .feedback-group-dialog h2 { font-size: 27px; }
   .feedback-group-actions { align-items: stretch; flex-direction: column; }
 }
+
+/* Profile menu: distinct emoji markers, with Clerk's account actions preserved. */
+.account-menu-emoji,.account-menu-manage-emoji::before,.account-menu-signout-emoji::before{display:inline-flex;align-items:center;justify-content:center;width:20px;min-width:20px;font-family:"Apple Color Emoji","Segoe UI Emoji",sans-serif;font-size:18px;line-height:1}
+.account-menu-manage-emoji::before{content:"🪪"}
+.account-menu-signout-emoji::before{content:"👋"}

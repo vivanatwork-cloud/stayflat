@@ -2,6 +2,8 @@ import { emptyData, snapshot } from "./engine";
 import type { Data, Workspace } from "./types";
 export function demoWorkspace(): Workspace {
   const d: Data = emptyData();
+  d.goal = "100000000.00";
+  d.goalSet = true;
   const now = new Date();
   const date = now.toISOString().slice(0, 10);
   d.fxDate = date;

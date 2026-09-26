@@ -88,6 +88,7 @@ export function projection(current: bigint, goal: string, growth: string) {
   const value = Number(current) / 100,
     target = Number(goal),
     rate = Number(growth) / 100;
+  if (!Number.isFinite(target) || target <= 0) return null;
   if (value >= target) return 0;
   if (value <= 0 || rate <= 0) return null;
   return Math.log(target / value) / Math.log(1 + rate);
@@ -132,7 +133,8 @@ export function emptyData(): Data {
     cards: [],
     fx: "85.00",
     fxDate: "",
-    goal: "100000000.00",
+    goal: "0.00",
+    goalSet: false,
     growth: "10",
     targets: {
       Cash: 15,

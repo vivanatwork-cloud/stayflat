@@ -27,3 +27,5 @@ body:has(.wealth-root){--vault:var(--paper);--raised:color-mix(in srgb,var(--pap
 .wealth-root .nav-new{display:none}.wealth-root .migration-notice{display:flex;justify-content:space-between;align-items:center;padding:14px;border:1px solid var(--line);margin-bottom:20px}
 .wealth-root .error{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 @media(max-width:700px){.wealth-root .topbar-actions .today,.wealth-root .stayflat-back{display:none}.wealth-root h1{font-size:30px}.wealth-root .hero-number{font-size:42px}.wealth-root .topbar-actions{gap:8px}.wealth-root .migration-notice{align-items:flex-start;flex-direction:column;gap:12px}}
+
+.wealth-root .goal-empty{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px 8px;gap:16px}.wealth-root .goal-empty>span{font-size:32px}.wealth-root .goal-empty h2{font-size:25px;line-height:1.2}.wealth-root .goal-empty p{line-height:1.6;max-width:36ch}

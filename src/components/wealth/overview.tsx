@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { hasWealthGoal } from "@/lib/wealth/goal";
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -228,10 +229,11 @@ export function Overview({
     opening && owner === "All"
       ? amount - inr(opening.total, "INR", data.fx)
       : null;
-  const years = projection(amount, data.goal, data.growth);
+  const goalSet = hasWealthGoal(data);
+  const years = goalSet ? projection(amount, data.goal, data.growth) : null;
   const percent = Math.min(
     100,
-    (Number(amount) / 100 / Number(data.goal)) * 100,
+    goalSet ? Math.max(0, (Number(amount) / 100 / Number(data.goal)) * 100) : 0,
   );
   const ranked = data.holdings
     .filter((h) => !["FDs", "EPF"].includes(h.type))
@@ -304,49 +306,72 @@ export function Overview({
           </div>
         </Panel>
         <Panel
-          title={hidden ? "Your wealth goal" : `The ${money(data.goal,"INR",true)} goal`}
+          title={
+            goalSet && !hidden
+              ? `Your ${money(data.goal, "INR", true)} goal`
+              : "Your wealth goal"
+          }
           aside={<Target size={17} />}
           className="goal-panel"
         >
-          <div
-            className="goal-ring"
-            style={{
-              background: `conic-gradient(var(--ledger-mint) ${percent}%,var(--graphite) 0)`,
-            }}
-          >
-            <div>
-              <strong>
-                {hidden ? "••" : percent.toFixed(1)}
-                <small>%</small>
-              </strong>
-              <span>of your goal</span>
+          {goalSet ? (
+            <>
+              <div
+                className="goal-ring"
+                style={{
+                  background: `conic-gradient(var(--ledger-mint) ${percent}%,var(--graphite) 0)`,
+                }}
+              >
+                <div>
+                  <strong>
+                    {hidden ? "••" : percent.toFixed(1)}
+                    <small>%</small>
+                  </strong>
+                  <span>of your goal</span>
+                </div>
+              </div>
+              <div className="goal-copy">
+                <p>
+                  {money(
+                    Math.max(
+                      0,
+                      Number(data.goal) - Number(amount) / 100,
+                    ).toFixed(2),
+                    undefined,
+                    true,
+                  )}{" "}
+                  <span>to go</span>
+                </p>
+                <span>
+                  {years === null
+                    ? "Add assets to see an estimate"
+                    : years === 0
+                      ? "Goal reached"
+                      : `About ${years.toFixed(1)} years at ${data.growth}% growth`}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="goal-empty">
+              <span aria-hidden="true">🌱</span>
+              <h2>What are you working towards?</h2>
+              <p className="muted">
+                Choose an amount that matters to you. Your progress starts with
+                your own goal.
+              </p>
             </div>
-          </div>
-          <div className="goal-copy">
-            <p>
-              {money(
-                (Number(data.goal) - Number(amount) / 100).toFixed(2),
-                undefined,
-                true,
-              )}{" "}
-              <span>to go</span>
-            </p>
-            <span>
-              {years === null
-                ? "Add assets to see an estimate"
-                : years === 0
-                  ? "Goal reached"
-                  : `About ${years.toFixed(1)} years at ${data.growth}% growth`}
-            </span>
-          </div>
+          )}
           <Button
             variant="outline"
             className="full-width"
             onClick={() => navigate("Goal")}
           >
-            Explore your goal <ArrowRight size={14} />
+            {goalSet ? "Edit your goal" : "Set your goal"}{" "}
+            <ArrowRight size={14} />
           </Button>
-          <small className="hint centered">Projection, not a promise.</small>
+          {goalSet ? (
+            <small className="hint centered">Projection, not a promise.</small>
+          ) : null}
         </Panel>
       </div>
       <div className="metrics-row">

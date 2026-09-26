@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { hasWealthGoal } from "@/lib/wealth/goal";
 import {
   Search,
   Plus,
@@ -587,7 +588,7 @@ export function GoalView({
   commit: (a: string, c: (d: Data) => void) => void;
 }) {
   const [growth, setGrowth] = useState(data.growth);
-  const [goal, setGoal] = useState(data.goal);
+  const [goal, setGoal] = useState(hasWealthGoal(data) ? data.goal : "");
   const [error, setError] = useState("");
   const value = total(data);
   const years = projection(value, goal, growth);
@@ -595,37 +596,52 @@ export function GoalView({
     <div className="goal-page">
       <Panel title="Make room for the life you want">
         <span className="eyebrow">YOUR WEALTH GOAL</span>
-        <h2 className="goal-title">{money(goal)}</h2>
-        <div className="goal-progress">
-          <span
-            style={{
-              width: `${Math.max(0, Math.min(100, (Number(value) / 100 / Number(goal)) * 100))}%`,
-            }}
-          />
-        </div>
-        <div className="card-meta">
-          <span>{money(value)} today</span>
-          <span>
-            {money(Math.max(0, Number(goal) - Number(value) / 100).toFixed(2))}{" "}
-            remaining
-          </span>
-        </div>
-        <div className="projection-result">
-          <span>Estimated time to your goal</span>
-          <strong>
-            {years === null
-              ? "Not enough growth to project"
-              : years === 0
-                ? "Goal reached"
-                : `${years.toFixed(1)} years`}
-          </strong>
-          <p>
-            Uses your current assets and a constant annual growth rate. Future
-            income and spending are not added separately.
-          </p>
-        </div>
+        {Number(goal) > 0 ? (
+          <>
+            <h2 className="goal-title">{money(goal)}</h2>
+            <div className="goal-progress">
+              <span
+                style={{
+                  width: `${Math.max(0, Math.min(100, (Number(value) / 100 / Number(goal)) * 100))}%`,
+                }}
+              />
+            </div>
+            <div className="card-meta">
+              <span>{money(value)} today</span>
+              <span>
+                {money(
+                  Math.max(0, Number(goal) - Number(value) / 100).toFixed(2),
+                )}{" "}
+                remaining
+              </span>
+            </div>
+            <div className="projection-result">
+              <span>Estimated time to your goal</span>
+              <strong>
+                {years === null
+                  ? "Not enough growth to project"
+                  : years === 0
+                    ? "Goal reached"
+                    : `${years.toFixed(1)} years`}
+              </strong>
+              <p>
+                Uses your current assets and a constant annual growth rate.
+                Future income and spending are not added separately.
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="goal-empty">
+            <span aria-hidden="true">🌱</span>
+            <h2>Start with what matters to you.</h2>
+            <p className="muted">
+              A home, more freedom, or a comfortable retirement. Set your own
+              amount and change it whenever your plans change.
+            </p>
+          </div>
+        )}
       </Panel>
-      <Panel title="Your assumptions">
+      <Panel title="Set your own target">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -639,8 +655,9 @@ export function GoalView({
                 throw new Error(
                   "Use a positive goal and a growth rate from 0 to 100%.",
                 );
-              commit("Updated goal assumptions", (d) => {
+              commit("Updated your wealth goal", (d) => {
                 d.goal = goal;
+                d.goalSet = true;
                 d.growth = growth;
               });
               setError("");
@@ -654,6 +671,8 @@ export function GoalView({
               type="number"
               min="1"
               step=".01"
+              required
+              placeholder="Enter your target amount"
               value={goal}
               onChange={(e) => setGoal(e.target.value)}
             />
@@ -669,7 +688,7 @@ export function GoalView({
             />
           </Field>
           <Button type="submit" className="full-width">
-            Save assumptions
+            Save my goal
           </Button>
           {error ? (
             <p role="alert" className="error">

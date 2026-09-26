@@ -103,6 +103,7 @@ export interface Data {
   fx: string;
   fxDate: string;
   goal: string;
+  goalSet?: boolean;
   growth: string;
   targets: Record<string, number>;
   staleDays: number;
