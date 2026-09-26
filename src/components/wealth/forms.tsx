@@ -1,5 +1,10 @@
 "use client";
 import { useState } from "react";
+import { BankField } from "./bank-field";
+import {
+  fixedDeposit,
+  rememberedInstitutions,
+} from "@/lib/wealth/fixed-deposit";
 import { Button, Choice, Field, Modal } from "./ui";
 import {
   assetTypes,
@@ -35,6 +40,13 @@ export function EntryForm({
     change: (d: Data) => void,
   ) => void | Promise<boolean>;
 }) {
+  const sourceAccount = data.accounts.find(
+    (a) =>
+      a.id ===
+      (initial && "accountId" in initial
+        ? initial.accountId
+        : defaults?.accountId),
+  );
   const [values, setValues] = useState<Record<string, string>>(() => ({
     name: "",
     institution: "",
@@ -67,11 +79,24 @@ export function EntryForm({
     spend: "0",
     due: "0",
     dueDate: new Date().toISOString().slice(0, 10),
+    ...(sourceAccount
+      ? {
+          institution: sourceAccount.institution,
+          ownership: sourceAccount.ownership,
+          currency: sourceAccount.currency,
+        }
+      : {}),
     ...defaults,
     ...Object.fromEntries(
       Object.entries(initial ?? {}).filter(([, v]) => typeof v === "string"),
     ),
   }));
+  const selectedAccount = data.accounts.find((a) => a.id === values.accountId);
+  const isFD =
+    kind === "holding" &&
+    (values.type === "FDs" || selectedAccount?.type === "FDs");
+  const isEPF = kind === "holding" && !isFD && selectedAccount?.type === "EPF";
+  const banks = rememberedInstitutions(data, isFD);
   const [error, setError] = useState("");
   const [affectCash, setAffectCash] = useState(affectCashInitially);
   const [saving, setSaving] = useState(false);
@@ -103,7 +128,21 @@ export function EntryForm({
       <Choice
         label={label}
         value={values[key]}
-        onChange={(v) => put(key, v)}
+        onChange={(v) => {
+          put(key, v);
+          if (key === "accountId") {
+            const chosen = data.accounts.find((a) => a.id === v);
+            if (chosen)
+              setValues((p) => ({
+                ...p,
+                accountId: v,
+                type: chosen.type,
+                institution: chosen.institution,
+                currency: chosen.currency,
+                ownership: chosen.ownership,
+              }));
+          }
+        }}
         options={opts}
       />
     </Field>
@@ -123,11 +162,14 @@ export function EntryForm({
       };
       const account = data.accounts.find((a) => a.id === values.accountId);
       let entry: Entry;
+      let fdAccount: Account | undefined;
       if (kind === "account") {
+        if (!values.institution.trim())
+          throw new Error("Choose a bank or provider, or add a new one.");
         entry = {
           id,
           name: values.name,
-          institution: values.institution,
+          institution: values.institution.trim(),
           type: values.type as Account["type"],
           currency: values.currency as Account["currency"],
           balance: money("balance"),
@@ -135,6 +177,10 @@ export function EntryForm({
           updatedAt: now,
           archived: false,
         };
+      } else if (kind === "holding" && isFD) {
+        const deposit = fixedDeposit(data, values, id, now);
+        entry = deposit.holding;
+        fdAccount = deposit.account;
       } else if (kind === "holding") {
         if (!account) throw new Error("Create an account first.");
         if (account.type === "Cash")
@@ -207,6 +253,7 @@ export function EntryForm({
               ? d.accounts.map((a) => (a.id === id ? (entry as Account) : a))
               : [...d.accounts, entry as Account];
           } else if (kind === "holding") {
+            if (fdAccount) d.accounts.push(fdAccount);
             d.holdings = initial
               ? d.holdings.map((h) => (h.id === id ? (entry as Holding) : h))
               : [...d.holdings, entry as Holding];
@@ -265,26 +312,77 @@ export function EntryForm({
       onClose={() => {
         if (!saving) onClose();
       }}
-      title={`${initial ? "Edit" : "Add"} ${kind}`}
+      title={`${initial ? "Edit" : "Add"} ${isFD ? "fixed deposit" : kind}`}
       description={
-        kind === "transaction"
-          ? "Transfers do not count as income or spending. Use negative expenses for refunds."
-          : undefined
+        isFD
+          ? "Record the deposit amount, bank, annual interest rate and maturity date. This does not change your cash balance."
+          : kind === "transaction"
+            ? "Transfers do not count as income or spending. Use negative expenses for refunds."
+            : undefined
       }
     >
       <form onSubmit={submit} className="entry-form">
         <div className="form-grid">
+          {kind === "holding" && !initial && !defaults?.type ? (
+            <Field label="Investment type">
+              <Choice
+                label="Investment type"
+                value={isFD ? "FDs" : (selectedAccount?.type ?? values.type)}
+                options={[
+                  ...new Set([
+                    ...data.accounts
+                      .filter((a) => a.type !== "Cash" && !a.archived)
+                      .map((a) => a.type),
+                    "FDs",
+                  ]),
+                ]}
+                onChange={(type) => {
+                  const a = data.accounts.find(
+                    (a) => a.type === type && !a.archived,
+                  );
+                  setValues((p) => ({
+                    ...p,
+                    type,
+                    accountId: a?.id ?? "",
+                    institution: a?.institution ?? "",
+                    currency: a?.currency ?? "INR",
+                    ownership: a?.ownership ?? "Personal",
+                  }));
+                }}
+              />
+            </Field>
+          ) : null}
           {kind === "account" ? (
             <>
               {input("name", "Account name")}
-              {input("institution", "Bank or provider")}
+              <BankField
+                value={values.institution}
+                onChange={(v) => put("institution", v)}
+                banks={banks}
+              />
               {choice("type", "Asset class", [...assetTypes])}
               {choice("currency", "Currency", ["INR", "USD", "USDC", "USDT"])}
               {choice("ownership", "Belongs to", ["Personal", "Business"])}
               {input("balance", "Cash balance", "number")}
             </>
           ) : null}
-          {kind === "holding" ? (
+          {kind === "holding" && isFD ? (
+            <>
+              {input("name", "FD name")}
+              <BankField
+                label="Bank"
+                value={values.institution}
+                onChange={(v) => put("institution", v)}
+                banks={banks}
+              />
+              {input("invested", "Deposit amount", "number")}
+              {choice("currency", "Currency", ["INR", "USD"])}
+              {input("rate", "Annual interest rate (%)", "number")}
+              {input("maturity", "Maturity date", "date")}
+              {choice("ownership", "Belongs to", ["Personal", "Business"])}
+            </>
+          ) : null}
+          {kind === "holding" && !isFD ? (
             <>
               {choice(
                 "accountId",
@@ -299,10 +397,15 @@ export function EntryForm({
               {input("quantity", "Quantity", "number")}
               {input("invested", "Invested / FD principal", "number")}
               {input("value", "Current value", "number")}
-              {input("sip", "Monthly SIP", "number", false)}
-              {input("nextSip", "Next SIP", "date", false)}
-              {input("maturity", "Maturity date", "date", false)}
-              {input("rate", "Interest rate (%)", "number", false)}
+              {!isEPF ? (
+                <>
+                  {input("sip", "Monthly SIP", "number", false)}
+                  {input("nextSip", "Next SIP", "date", false)}
+                </>
+              ) : null}
+              {isEPF
+                ? input("rate", "Interest rate (%)", "number", false)
+                : null}
             </>
           ) : null}
           {kind === "transaction" ? (
@@ -386,7 +489,7 @@ export function EntryForm({
             Cancel
           </Button>
           <Button type="submit" disabled={saving}>
-            {saving ? "Saving…" : `Save ${kind}`}
+            {saving ? "Saving…" : `Save ${isFD ? "fixed deposit" : kind}`}
           </Button>
         </div>
       </form>

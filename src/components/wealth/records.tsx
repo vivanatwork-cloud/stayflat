@@ -34,7 +34,11 @@ import type { Data, Ownership, Workspace } from "@/lib/wealth/types";
 import type { Money } from "./overview";
 import type { EntryKind } from "./forms";
 import { csvEscape, download } from "@/lib/wealth/import";
-type Edit = (kind: EntryKind, entry?: any) => void;
+type Edit = (
+  kind: EntryKind,
+  entry?: any,
+  defaults?: Record<string, string>,
+) => void;
 export function Records({
   page,
   data,
@@ -123,6 +127,21 @@ export function Records({
         {!isTransactions && !isCash ? (
           <Button variant="outline" onClick={importHoldings}>
             Import holdings
+          </Button>
+        ) : null}
+        {page === "FDs / EPF" ? (
+          <Button
+            variant="outline"
+            onClick={() =>
+              edit("holding", undefined, {
+                type: "EPF",
+                accountId:
+                  data.accounts.find((a) => a.type === "EPF" && !a.archived)
+                    ?.id ?? "",
+              })
+            }
+          >
+            Add EPF balance
           </Button>
         ) : null}
         <Button
@@ -287,8 +306,13 @@ export function Records({
                             <span>
                               <b>{h.name}</b>
                               <small>
-                                {h.symbol} · {h.type}
-                                {h.sip
+                                {h.type === "FDs"
+                                  ? data.accounts.find(
+                                      (a) => a.id === h.accountId,
+                                    )?.institution
+                                  : h.symbol}{" "}
+                                · {h.type}
+                                {h.type !== "FDs" && h.sip
                                   ? ` · SIP ${money(h.sip, h.currency)}`
                                   : ""}
                                 {h.maturity ? ` · Matures ${h.maturity}` : ""}
@@ -429,7 +453,7 @@ export function CalendarView({
   const all = [
     ...data.events,
     ...data.holdings
-      .filter((h) => h.nextSip && h.sip)
+      .filter((h) => h.type !== "FDs" && h.nextSip && h.sip)
       .map((h) => ({
         id: h.id,
         title: `${h.name} SIP`,

@@ -181,9 +181,11 @@ export default function WealthApp({ ownerId }: { ownerId: string }) {
   const [page, setPage] = useState("Overview");
   const [owner, setOwner] = useState<"All" | Ownership>("All");
   const [hidden, setHidden] = useState(false);
-  const [entry, setEntry] = useState<{ kind: EntryKind; initial?: any } | null>(
-    null,
-  );
+  const [entry, setEntry] = useState<{
+    kind: EntryKind;
+    initial?: any;
+    defaults?: Record<string, string>;
+  } | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [holdingsImportOpen, setHoldingsImportOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -217,13 +219,48 @@ export default function WealthApp({ ownerId }: { ownerId: string }) {
       toast.error((e as Error).message);
     }
   }
-  const edit = (kind: EntryKind, initial?: any) => {
+  const edit = (
+    kind: EntryKind,
+    initial?: any,
+    defaults?: Record<string, string>,
+  ) => {
     if (hidden) {
       toast.info("Show amounts before editing financial records.");
       return;
     }
     if (
       kind === "holding" &&
+      !initial &&
+      !defaults &&
+      ["Indian Stocks", "US Stocks", "Mutual Funds", "Crypto"].includes(page)
+    ) {
+      const a = data.accounts.find((a) => a.type === page && !a.archived);
+      if (!a) {
+        toast.info(`Add a ${page} account first.`);
+        setEntry({
+          kind: "account",
+          defaults: {
+            type: page,
+            currency: page === "US Stocks" ? "USD" : "INR",
+          },
+        });
+        return;
+      }
+      defaults = { type: page, accountId: a.id, currency: a.currency };
+    }
+    if (
+      kind === "holding" &&
+      defaults?.type === "EPF" &&
+      !data.accounts.some((a) => a.type === "EPF" && !a.archived)
+    ) {
+      toast.info("Add your provident fund account first, then its balance.");
+      setEntry({ kind: "account", defaults: { type: "EPF" } });
+      return;
+    }
+    if (
+      kind === "holding" &&
+      page !== "FDs / EPF" &&
+      initial?.type !== "FDs" &&
       !data.accounts.some((a) => a.type !== "Cash" && !a.archived)
     ) {
       toast.info("Add an investment account first.");
@@ -235,7 +272,15 @@ export default function WealthApp({ ownerId }: { ownerId: string }) {
       setEntry({ kind: "account" });
       return;
     }
-    setEntry({ kind, initial });
+    setEntry({
+      kind,
+      initial,
+      defaults:
+        defaults ??
+        (kind === "holding" && !initial && page === "FDs / EPF"
+          ? { type: "FDs", accountId: "", invested: "", currency: "INR" }
+          : undefined),
+    });
   };
   const navigate = (p: string) => {
     setPage(p);
@@ -628,6 +673,7 @@ export default function WealthApp({ ownerId }: { ownerId: string }) {
           key={entry.kind + entry.initial?.id}
           kind={entry.kind}
           initial={entry.initial}
+          defaults={entry.defaults}
           data={data}
           onClose={() => setEntry(null)}
           commit={commit}
