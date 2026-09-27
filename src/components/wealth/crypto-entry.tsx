@@ -100,10 +100,18 @@ export function CryptoEntry({
         setPreview(URL.createObjectURL(file));
         setFilename(file.name);
         const { readScreenshot } = await import("@/lib/wealth/read-screenshot");
-        const text = await readScreenshot(file, setProgress, controller.signal);
+        const reading = await readScreenshot(
+          file,
+          setProgress,
+          controller.signal,
+        );
         if (controller.signal.aborted) return;
-        setRaw(text);
-        const found = screenshotDrafts(text, account.currency);
+        setRaw(reading.text);
+        const found = screenshotDrafts(reading, account.currency);
+        if (!found.length)
+          setError(
+            "We could not identify any coin rows in this image. Try a clearer crop with the coin names and column headings visible, or enter the details below.",
+          );
         setRows(found.length ? found : [blankCrypto(account.currency)]);
       } else {
         const text = await file.text();
@@ -335,7 +343,7 @@ export function CryptoEntry({
                 <form onSubmit={save} className="crypto-review">
                   <p>
                     {method === "screenshot"
-                      ? "Check the suggested names and quantities against the image, and add any coins we missed. Enter each coin’s total purchase cost and total current value; these are not guessed from prices."
+                      ? "Check the coins, quantities and holding values against the image, and add any coins we missed. Fill any blank amounts; purchase cost is only filled when the image shows it."
                       : "Check every row. Amounts are totals for your holding, not the price of one coin."}
                   </p>
                   <fieldset disabled={saving}>

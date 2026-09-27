@@ -52,35 +52,7 @@ export function cryptoCsv(text: string, currency: string): CryptoDraft[] {
   });
 }
 
-// Text recognition is fallible. Suggest known names and explicitly labelled quantities;
-// never treat a token's market price or a wallet total as the user's holding value.
-const coins = [
-  ["Bitcoin", "BTC"],
-  ["Ethereum", "ETH"],
-  ["Solana", "SOL"],
-  ["USD Coin", "USDC"],
-  ["Tether", "USDT"],
-  ["XRP", "XRP"],
-  ["Dogecoin", "DOGE"],
-  ["Cardano", "ADA"],
-  ["BNB", "BNB"],
-  ["Avalanche", "AVAX"],
-  ["Chainlink", "LINK"],
-  ["Litecoin", "LTC"],
-] as const;
-export function screenshotDrafts(
-  text: string,
-  currency: string,
-): CryptoDraft[] {
-  return coins.flatMap(([name, symbol]) => {
-    if (!new RegExp(`\\b(?:${name}|${symbol})\\b`, "i").test(text)) return [];
-    const quantity =
-      text.match(
-        new RegExp(`(?:^|\\s)([0-9]+(?:\\.[0-9]+)?)\\s+${symbol}\\b`, "im"),
-      )?.[1] ?? "";
-    return [{ ...blankCrypto(currency), name, symbol, quantity }];
-  });
-}
+export { screenshotDrafts } from "./crypto-screenshot";
 export function verifiedCrypto(
   rows: CryptoDraft[],
   account: Account,
