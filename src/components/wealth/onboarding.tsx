@@ -1,4 +1,5 @@
 "use client";
+import { assetWords } from "@/lib/wealth/asset-words";
 import { useEffect, useRef, useState } from "react";
 import { Button, Choice, Field, Panel } from "./ui";
 import { EntryForm, ImportForm, type EntryKind, type Entry } from "./forms";
@@ -329,19 +330,20 @@ export function WealthOnboarding({
                     kind: "account",
                     defaults: {
                       type: investmentType,
-                      currency: investmentType === "US Stocks" ? "USD" : "INR",
+                      currency: ["US Stocks", "Crypto"].includes(investmentType)
+                        ? "USD"
+                        : "INR",
                       balance: "0",
                     },
                   })
                 }
               >
-                + Add investment account
+                + Add {assetWords(investmentType).account.toLowerCase()}
               </Button>
             </div>
             <p className="setup-note">
-              For example, add your broker or fund provider first. Its account
-              balance is not counted as an investment until you add a holding
-              below.
+              Add your {assetWords(investmentType).account.toLowerCase()} first,
+              then record its holdings and values below.
             </p>
             <ul className="setup-records">
               {confirmedData.accounts
@@ -366,7 +368,11 @@ export function WealthOnboarding({
                       onClick={() =>
                         setEntry({
                           kind: "holding",
-                          defaults: { accountId: a.id, currency: a.currency },
+                          defaults: {
+                            type: a.type,
+                            accountId: a.id,
+                            currency: a.currency,
+                          },
                         })
                       }
                     >

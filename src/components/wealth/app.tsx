@@ -48,6 +48,11 @@ import { formatMoney } from "@/lib/wealth/engine";
 import type { Data, Ownership } from "@/lib/wealth/types";
 import { Button, Choice, Modal } from "./ui";
 import { Overview } from "./overview";
+import dynamic from "next/dynamic";
+import { assetWords } from "@/lib/wealth/asset-words";
+const CryptoEntry = dynamic(() =>
+  import("./crypto-entry").then((m) => m.CryptoEntry),
+);
 import { EntryForm, ImportForm, type EntryKind } from "./forms";
 import {
   AllocationSettings,
@@ -187,6 +192,7 @@ export default function WealthApp({ ownerId }: { ownerId: string }) {
     defaults?: Record<string, string>;
   } | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [cryptoOpen, setCryptoOpen] = useState(false);
   const [holdingsImportOpen, setHoldingsImportOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [switchOpen, setSwitchOpen] = useState(false);
@@ -229,6 +235,26 @@ export default function WealthApp({ ownerId }: { ownerId: string }) {
       return;
     }
     if (
+      kind === "account" &&
+      !initial &&
+      !defaults &&
+      ["Cash", "Indian Stocks", "US Stocks", "Mutual Funds", "Crypto"].includes(
+        page,
+      )
+    )
+      defaults = {
+        type: page,
+        currency: ["US Stocks", "Crypto"].includes(page) ? "USD" : "INR",
+      };
+    if (
+      kind === "holding" &&
+      !initial &&
+      (page === "Crypto" || defaults?.type === "Crypto")
+    ) {
+      setCryptoOpen(true);
+      return;
+    }
+    if (
       kind === "holding" &&
       !initial &&
       !defaults &&
@@ -236,7 +262,7 @@ export default function WealthApp({ ownerId }: { ownerId: string }) {
     ) {
       const a = data.accounts.find((a) => a.type === page && !a.archived);
       if (!a) {
-        toast.info(`Add a ${page} account first.`);
+        toast.info(`Add a ${assetWords(page).account.toLowerCase()} first.`);
         setEntry({
           kind: "account",
           defaults: {
@@ -295,6 +321,11 @@ export default function WealthApp({ ownerId }: { ownerId: string }) {
     Overview: "Your accounts, investments and cash, together.",
     Assets: "Every holding. One clear picture.",
     Cash: "Know what is available.",
+    Crypto: "Your coins and tokens, across wallets and exchanges.",
+    "Indian Stocks": "Your shares across Indian brokerage accounts.",
+    "US Stocks": "Your shares across US brokerage accounts.",
+    "Mutual Funds": "Your funds, units and regular contributions.",
+    "FDs / EPF": "Your fixed deposits and provident fund balances.",
     Income: "See what your work brings in.",
     Expenses: "Understand where your money goes.",
     AI: "A little more clarity.",
@@ -390,6 +421,22 @@ export default function WealthApp({ ownerId }: { ownerId: string }) {
                     toast.info(
                       "Show amounts before importing financial records.",
                     );
+                    return;
+                  }
+                  if (page === "Crypto") {
+                    setCryptoOpen(true);
+                    return;
+                  }
+                  if (
+                    [
+                      "Assets",
+                      "Indian Stocks",
+                      "US Stocks",
+                      "Mutual Funds",
+                      "FDs / EPF",
+                    ].includes(page)
+                  ) {
+                    setHoldingsImportOpen(true);
                     return;
                   }
                   if (!data.accounts.some((a) => a.type === "Cash")) {
@@ -542,7 +589,9 @@ export default function WealthApp({ ownerId }: { ownerId: string }) {
                 importHoldings={() =>
                   hidden
                     ? toast.info("Show amounts before importing.")
-                    : setHoldingsImportOpen(true)
+                    : page === "Crypto"
+                      ? setCryptoOpen(true)
+                      : setHoldingsImportOpen(true)
                 }
                 key={page}
                 page={page}
@@ -580,7 +629,19 @@ export default function WealthApp({ ownerId }: { ownerId: string }) {
       >
         <div className="add-options">
           {[
-            ["account", "Account", "Bank, broker, crypto, FD or EPF"],
+            [
+              "account",
+              [
+                "Cash",
+                "Indian Stocks",
+                "US Stocks",
+                "Mutual Funds",
+                "Crypto",
+              ].includes(page)
+                ? assetWords(page).account
+                : "Account or wallet",
+              "Bank, brokerage, fund, wallet or exchange",
+            ],
             [
               "holding",
               "Holding or balance",
@@ -661,8 +722,16 @@ export default function WealthApp({ ownerId }: { ownerId: string }) {
           records and original statements from Data sources.
         </p>
       </Modal>
+      {cryptoOpen ? (
+        <CryptoEntry
+          data={data}
+          commit={commit}
+          onClose={() => setCryptoOpen(false)}
+        />
+      ) : null}
       {holdingsImportOpen ? (
         <HoldingsImport
+          assetType={page}
           data={data}
           commit={commit}
           onClose={() => setHoldingsImportOpen(false)}

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { assetWords } from "@/lib/wealth/asset-words";
 import { hasWealthGoal } from "@/lib/wealth/goal";
 import {
   Search,
@@ -89,14 +90,27 @@ export function Records({
   const cols = isTransactions
     ? ["Date", "Description", "Category", "Ownership", "Amount", ""]
     : isCash
-      ? ["Account", "Bank", "Ownership", "Balance", "Last updated", ""]
+      ? [
+          "Bank / cash account",
+          "Bank",
+          "Ownership",
+          "Balance",
+          "Last updated",
+          "",
+        ]
       : [
-          "Asset",
-          "Account",
-          "Quantity",
-          "Invested",
+          page === "Crypto"
+            ? "Coin / token"
+            : page === "FDs / EPF"
+              ? "Deposit / fund"
+              : "Asset",
+          page === "FDs / EPF"
+            ? "Bank / provident fund"
+            : assetWords(page).account,
+          page === "FDs / EPF" ? "Maturity" : assetWords(page).quantity,
+          page === "FDs / EPF" ? "Principal / contributions" : "Invested",
           "Current value",
-          "Gain / loss",
+          page === "FDs / EPF" ? "Interest / growth" : "Gain / loss",
           "",
         ];
   return (
@@ -312,7 +326,7 @@ export function Records({
                                     )?.institution
                                   : h.symbol}{" "}
                                 · {h.type}
-                                {h.type !== "FDs" && h.sip
+                                {h.type === "Mutual Funds" && h.sip
                                   ? ` · SIP ${money(h.sip, h.currency)}`
                                   : ""}
                                 {h.maturity ? ` · Matures ${h.maturity}` : ""}
@@ -326,7 +340,13 @@ export function Records({
                               ?.name
                           }
                         </TableCell>
-                        <TableCell className="numeric">{h.quantity}</TableCell>
+                        <TableCell className="numeric">
+                          {page === "FDs / EPF"
+                            ? (h.maturity ?? "—")
+                            : ["FDs", "EPF"].includes(h.type)
+                              ? "—"
+                              : h.quantity}
+                        </TableCell>
                         <TableCell className="numeric">
                           {money(h.invested, h.currency)}
                         </TableCell>
@@ -377,14 +397,18 @@ export function Records({
             : holdings.length) === 0 ? (
           <Empty
             title={search ? "No matching records" : "Nothing here yet"}
-            text="Add a record or import a statement to get started."
+            text={
+              page === "Crypto"
+                ? "Add your first coin, upload a CSV, or start from a screenshot."
+                : "Add a record or import a file to get started."
+            }
           />
         ) : null}
       </Panel>
       {page === "Crypto" ? (
         <p className="hint">
-          Each saved update creates a dated portfolio snapshot. Enter verified
-          screenshot values manually until screenshot reading is connected.
+          Add coins manually, upload a CSV, or read a screenshot. Review the
+          details before saving them to your wallet or exchange.
         </p>
       ) : null}
       {page === "Crypto" && data.holdingHistory?.length ? (
@@ -453,7 +477,7 @@ export function CalendarView({
   const all = [
     ...data.events,
     ...data.holdings
-      .filter((h) => h.type !== "FDs" && h.nextSip && h.sip)
+      .filter((h) => h.type === "Mutual Funds" && h.nextSip && h.sip)
       .map((h) => ({
         id: h.id,
         title: `${h.name} SIP`,

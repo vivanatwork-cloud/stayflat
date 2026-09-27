@@ -27,16 +27,12 @@ export function BankField({
           }}
           options={[
             ...banks.map((bank) => ({ value: `saved:${bank}`, label: bank })),
-            { value: "new", label: "+ Add a new bank or provider" },
+            { value: "new", label: `+ Add a new ${label.toLowerCase()}` },
           ]}
         />
       </Field>
       {adding ? (
-        <Field
-          label={
-            label === "Bank" ? "New bank name" : "New bank or provider name"
-          }
-        >
+        <Field label={`New ${label.toLowerCase()} name`}>
           <input
             required
             value={value}

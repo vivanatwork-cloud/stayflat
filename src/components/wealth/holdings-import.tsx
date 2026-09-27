@@ -1,4 +1,5 @@
 "use client";
+import { assetWords } from "@/lib/wealth/asset-words";
 import { useState } from "react";
 import { Button, Choice, Field, Modal } from "./ui";
 import { parseCsv, download } from "@/lib/wealth/import";
@@ -6,16 +7,26 @@ import { decimal, minor } from "@/lib/wealth/engine";
 import type { Data, Holding } from "@/lib/wealth/types";
 export function HoldingsImport({
   data,
+  assetType,
   onClose,
   commit,
 }: {
   data: Data;
+  assetType?: string;
   onClose: () => void;
   commit: (a: string, c: (d: Data) => void) => void;
 }) {
-  const [accountId, setAccount] = useState(
-    data.accounts.find((a) => a.type !== "Cash" && !a.archived)?.id ?? "",
+  const accounts = data.accounts.filter(
+    (a) =>
+      !a.archived &&
+      a.type !== "Cash" &&
+      (!assetType ||
+        assetType === "Assets" ||
+        (assetType === "FDs / EPF"
+          ? ["FDs", "EPF"].includes(a.type)
+          : a.type === assetType)),
   );
+  const [accountId, setAccount] = useState(accounts[0]?.id ?? "");
   const [rows, setRows] = useState<Holding[]>([]);
   const [raw, setRaw] = useState("");
   const [name, setName] = useState("");
@@ -81,21 +92,24 @@ export function HoldingsImport({
       title="Import a holdings snapshot"
       description="Review the file before replacing the current holdings in this account. Earlier approved snapshots stay in history."
     >
-      <Field label="Investment account">
+      <Field label={assetWords(assetType ?? "").account}>
         <Choice
           value={accountId}
           onChange={(v) => {
             setAccount(v);
             setRows([]);
           }}
-          options={data.accounts
-            .filter((a) => a.type !== "Cash" && !a.archived)
-            .map((a) => ({ value: a.id, label: a.name }))}
+          options={accounts.map((a) => ({ value: a.id, label: a.name }))}
         />
       </Field>
       <label className="dropzone">
         <span>Choose a holdings CSV</span>
-        <small>Stocks, funds, crypto, FD or EPF</small>
+        <small>
+          {assetType && assetType !== "Assets"
+            ? assetType
+            : "Investment holdings"}{" "}
+          · up to 5 MB
+        </small>
         <input
           type="file"
           aria-label="Holdings CSV"
@@ -108,7 +122,7 @@ export function HoldingsImport({
         onClick={() =>
           download(
             "wealthos-holdings.csv",
-            "name,symbol,quantity,invested,value,currency\nBitcoin,BTC,0.1,7000,9000,USD\nUSD Coin,USDC,1000,1000,1000,USDC",
+            `name,symbol,quantity,invested,value,currency\nExample holding,EXAMPLE,1,1000,1100,${accounts.find((a) => a.id === accountId)?.currency ?? "INR"}`,
             "text/csv",
           )
         }

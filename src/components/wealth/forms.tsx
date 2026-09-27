@@ -1,10 +1,8 @@
 "use client";
 import { useState } from "react";
+import { assetWords, assetProviders } from "@/lib/wealth/asset-words";
 import { BankField } from "./bank-field";
-import {
-  fixedDeposit,
-  rememberedInstitutions,
-} from "@/lib/wealth/fixed-deposit";
+import { fixedDeposit } from "@/lib/wealth/fixed-deposit";
 import { Button, Choice, Field, Modal } from "./ui";
 import {
   assetTypes,
@@ -27,6 +25,8 @@ export function EntryForm({
   defaults,
   affectCashInitially = true,
   onClose,
+  onSaved,
+  onSaveFailed,
   commit,
 }: {
   kind: EntryKind;
@@ -35,6 +35,8 @@ export function EntryForm({
   defaults?: Record<string, string>;
   affectCashInitially?: boolean;
   onClose: () => void;
+  onSaved?: (entry: Entry) => void;
+  onSaveFailed?: () => void;
   commit: (
     action: string,
     change: (d: Data) => void,
@@ -96,7 +98,16 @@ export function EntryForm({
     kind === "holding" &&
     (values.type === "FDs" || selectedAccount?.type === "FDs");
   const isEPF = kind === "holding" && !isFD && selectedAccount?.type === "EPF";
-  const banks = rememberedInstitutions(data, isFD);
+  const assetType =
+    kind === "account"
+      ? values.type
+      : isFD
+        ? "FDs"
+        : (selectedAccount?.type ?? values.type);
+  const words = assetWords(assetType);
+  const banks = assetProviders(data, assetType);
+  const currencies =
+    assetType === "Crypto" ? ["INR", "USD", "USDC", "USDT"] : ["INR", "USD"];
   const [error, setError] = useState("");
   const [affectCash, setAffectCash] = useState(affectCashInitially);
   const [saving, setSaving] = useState(false);
@@ -115,7 +126,9 @@ export function EntryForm({
         onChange={(e) => put(key, e.target.value)}
         type={type}
         required={required}
-        step={type === "number" ? "0.01" : undefined}
+        step={
+          type === "number" ? (key === "quantity" ? "any" : "0.01") : undefined
+        }
       />
     </Field>
   );
@@ -130,6 +143,13 @@ export function EntryForm({
         value={values[key]}
         onChange={(v) => {
           put(key, v);
+          if (key === "type")
+            setValues((p) => ({
+              ...p,
+              type: v,
+              institution: "",
+              balance: "0",
+            }));
           if (key === "accountId") {
             const chosen = data.accounts.find((a) => a.id === v);
             if (chosen)
@@ -165,14 +185,19 @@ export function EntryForm({
       let fdAccount: Account | undefined;
       if (kind === "account") {
         if (!values.institution.trim())
-          throw new Error("Choose a bank or provider, or add a new one.");
+          throw new Error(
+            `Choose a ${words.provider.toLowerCase()}, or add a new one.`,
+          );
         entry = {
           id,
           name: values.name,
           institution: values.institution.trim(),
           type: values.type as Account["type"],
           currency: values.currency as Account["currency"],
-          balance: money("balance"),
+          balance:
+            values.type === "Cash"
+              ? money("balance")
+              : ((initial as Account | undefined)?.balance ?? "0"),
           ownership: values.ownership as Account["ownership"],
           updatedAt: now,
           archived: false,
@@ -194,15 +219,21 @@ export function EntryForm({
           id,
           accountId: account.id,
           name: values.name,
-          symbol: values.symbol || values.name.slice(0, 5).toUpperCase(),
+          symbol:
+            values.symbol.trim().toUpperCase() ||
+            values.name.slice(0, 5).toUpperCase(),
           type: account.type,
           currency: values.currency as Holding["currency"],
           quantity: values.quantity,
           invested: money("invested"),
           value: money("value"),
           updatedAt: now,
-          ...(values.sip ? { sip: money("sip") } : {}),
-          ...(values.nextSip ? { nextSip: values.nextSip } : {}),
+          ...(account.type === "Mutual Funds" && values.sip
+            ? { sip: money("sip") }
+            : {}),
+          ...(account.type === "Mutual Funds" && values.nextSip
+            ? { nextSip: values.nextSip }
+            : {}),
           ...(values.maturity ? { maturity: values.maturity } : {}),
           ...(values.rate ? { rate: values.rate } : {}),
         };
@@ -296,10 +327,11 @@ export function EntryForm({
       );
       // Keep pending data in the main workspace on a failed cloud save; retry there.
       if (saved === false) {
-        onClose();
+        (onSaveFailed ?? onClose)();
         return;
       }
-      onClose();
+      if (onSaved) onSaved(entry);
+      else onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Check these details.");
     } finally {
@@ -312,7 +344,7 @@ export function EntryForm({
       onClose={() => {
         if (!saving) onClose();
       }}
-      title={`${initial ? "Edit" : "Add"} ${isFD ? "fixed deposit" : kind}`}
+      title={`${initial ? "Edit" : "Add"} ${isFD ? "fixed deposit" : kind === "account" ? words.account.toLowerCase() : assetType === "Crypto" && kind === "holding" ? "crypto holding" : isEPF ? "provident fund balance" : kind}`}
       description={
         isFD
           ? "Record the deposit amount, bank, annual interest rate and maturity date. This does not change your cash balance."
@@ -354,16 +386,27 @@ export function EntryForm({
           ) : null}
           {kind === "account" ? (
             <>
-              {input("name", "Account name")}
+              {!defaults?.type && !initial
+                ? choice("type", "Account type", [...assetTypes])
+                : null}
+              {input("name", `${words.account} name`)}
               <BankField
+                key={assetType}
+                label={words.provider}
                 value={values.institution}
                 onChange={(v) => put("institution", v)}
                 banks={banks}
               />
-              {choice("type", "Asset class", [...assetTypes])}
-              {choice("currency", "Currency", ["INR", "USD", "USDC", "USDT"])}
+              {choice("currency", "Value currency", currencies)}
               {choice("ownership", "Belongs to", ["Personal", "Business"])}
-              {input("balance", "Cash balance", "number")}
+              {assetType === "Cash" ? (
+                input("balance", "Cash balance", "number")
+              ) : (
+                <p className="hint">
+                  Save this {words.account.toLowerCase()}, then add its holdings
+                  and values.
+                </p>
+              )}
             </>
           ) : null}
           {kind === "holding" && isFD ? (
@@ -386,21 +429,46 @@ export function EntryForm({
             <>
               {choice(
                 "accountId",
-                "Account",
+                words.account,
                 data.accounts
-                  .filter((a) => a.type !== "Cash" && !a.archived)
+                  .filter(
+                    (a) =>
+                      a.type !== "Cash" && !a.archived && a.type === assetType,
+                  )
                   .map((a) => ({ value: a.id, label: a.name })),
               )}
-              {input("name", "Asset name")}
-              {input("symbol", "Symbol", "text", false)}
-              {choice("currency", "Currency", ["INR", "USD", "USDC", "USDT"])}
-              {input("quantity", "Quantity", "number")}
-              {input("invested", "Invested / FD principal", "number")}
-              {input("value", "Current value", "number")}
-              {!isEPF ? (
+              {input("name", words.asset)}
+              {!isEPF
+                ? input(
+                    "symbol",
+                    assetType === "Crypto"
+                      ? "Token symbol (e.g. BTC)"
+                      : "Symbol",
+                    "text",
+                    assetType === "Crypto",
+                  )
+                : null}
+              {choice("currency", "Value currency", currencies)}
+              {!isEPF ? input("quantity", words.quantity, "number") : null}
+              {input(
+                "invested",
+                isEPF ? "Total contributions" : "Total purchase cost",
+                "number",
+              )}
+              {input(
+                "value",
+                isEPF ? "Current balance" : "Total current value",
+                "number",
+              )}
+              {assetType === "Mutual Funds" ? (
                 <>
-                  {input("sip", "Monthly SIP", "number", false)}
-                  {input("nextSip", "Next SIP", "date", false)}
+                  {input(
+                    "sip",
+                    "Monthly fund contribution (SIP)",
+                    "number",
+                    false,
+                  )}
+                  {input("nextSip", "Next contribution date", "date", false)}
                 </>
               ) : null}
               {isEPF
@@ -489,7 +557,9 @@ export function EntryForm({
             Cancel
           </Button>
           <Button type="submit" disabled={saving}>
-            {saving ? "Saving…" : `Save ${isFD ? "fixed deposit" : kind}`}
+            {saving
+              ? "Saving…"
+              : `Save ${isFD ? "fixed deposit" : kind === "account" ? words.account.toLowerCase() : assetType === "Crypto" && kind === "holding" ? "crypto holding" : isEPF ? "provident fund balance" : kind}`}
           </Button>
         </div>
       </form>
