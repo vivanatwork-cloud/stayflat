@@ -72,8 +72,10 @@ export function buildJournalAnalytics(trades: JournalTrade[], period: AnalyticsP
     dailyMap.set(day, daily);
     const strategy = item.trade.strategy.trim() || "No strategy recorded";
     strategyMap.set(strategy, [...(strategyMap.get(strategy) ?? []), item]);
-    const emotion = emotionLabel(item.trade.emo);
-    emotionMap.set(emotion, (emotionMap.get(emotion) ?? 0) + item.net);
+    if (item.trade.emo >= 1 && item.trade.emo <= 10) {
+      const emotion = emotionLabel(item.trade.emo);
+      emotionMap.set(emotion, (emotionMap.get(emotion) ?? 0) + item.net);
+    }
     marketMap.set(item.trade.coin, (marketMap.get(item.trade.coin) ?? 0) + item.net);
   }
   const strategies: StrategyPerformance[] = [...strategyMap].map(([strategy, items]) => {

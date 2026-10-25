@@ -4,10 +4,10 @@ import { ConvexHttpClient } from "convex/browser";
 import { fetchQuery } from "convex/nextjs";
 import { redirect } from "next/navigation";
 import { api } from "../../../convex/_generated/api";
-import { Journal } from "@/components/journal/journal";
+import { ReferenceJournal } from "@/components/journal/reference-journal";
 import { getConvexToken } from "@/lib/convex-auth";
-import { EMPTY_JOURNAL } from "@/lib/journal/types";
-import { parseJournalState } from "@/lib/journal/validation";
+import { parseReferenceState, referenceToLegacy } from "@/lib/journal/reference-state";
+import { referenceDocument } from "@/lib/journal/reference-document";
 import "./journal.css";
 
 export const metadata: Metadata = {
@@ -43,9 +43,8 @@ export default async function JournalPage() {
     hasPaid = await fetchQuery(api.payments.hasPaid, {}, { token });
   if (!hasPaid) redirect("/payment");
 
-  const saved = await fetchQuery(api.journals.get, {}, { token });
-  const parsed = saved
-    ? parseJournalState(saved)
-    : { ok: true as const, value: EMPTY_JOURNAL };
-  return <Journal initialJournal={parsed.ok ? parsed.value : EMPTY_JOURNAL} />;
+  const saved = await fetchQuery(api.journals.referenceGet, {}, { token });
+  const state = parseReferenceState(JSON.parse(saved.state));
+  const document = await referenceDocument(state, saved.revision, session.userId);
+  return <ReferenceJournal document={document} trades={referenceToLegacy(state, 0).trades} initialTarget={state.target ?? null} initialCapital={state.tradingCapital ?? 0} />;
 }

@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { PnlCalendar } from "./pnl-calendar";
 import { buildJournalAnalytics, type AnalyticsPeriod } from "@/lib/journal/analytics";
 import { money } from "@/lib/journal/calculations";
 import type { JournalTrade } from "@/lib/journal/types";
 
 export type { AnalyticsPeriod } from "@/lib/journal/analytics";
 const PERIODS: [AnalyticsPeriod, string][] = [["all", "All time"], ["7", "Last 7 days"], ["30", "Last 30 days"], ["ytd", "This year"]];
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: "positive" | "negative" }) {
   return <div className="journal-stat"><span>{label}</span><strong className={tone ? `journal-${tone}` : ""}>{value}</strong></div>;
@@ -32,26 +32,8 @@ function EquityChart({ points }: { points: { time: number; value: number }[] }) 
   </article>;
 }
 
-function Calendar({ daily }: { daily: { date: string; pnl: number; trades: number }[] }) {
-  const latest = daily.at(-1)?.date;
-  const initial = latest ? new Date(`${latest}T12:00:00`) : new Date();
-  const [month, setMonth] = useState(() => new Date(initial.getFullYear(), initial.getMonth(), 1));
-  const byDate = new Map(daily.map((day) => [day.date, day]));
-  const firstOffset = (month.getDay() + 6) % 7;
-  const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-  const cells = Array.from({ length: Math.ceil((firstOffset + days) / 7) * 7 }, (_, index) => {
-    const day = index - firstOffset + 1;
-    if (day < 1 || day > days) return null;
-    const key = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    return { day, key, performance: byDate.get(key) };
-  });
-  const move = (offset: number) => setMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
-  const monthName = month.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-  return <article className="journal-chart journal-calendar-card"><header className="journal-calendar-head"><div><h2>Daily P/L calendar</h2><p>See profitable, losing, and inactive days at a glance.</p></div><div><button type="button" onClick={() => move(-1)} aria-label="Previous month">←</button><strong>{monthName}</strong><button type="button" onClick={() => move(1)} aria-label="Next month">→</button></div></header><div className="journal-calendar" role="grid" aria-label={`Daily profit and loss for ${monthName}`}>{WEEKDAYS.map((day) => <span className="journal-calendar-weekday" role="columnheader" key={day}>{day}</span>)}{cells.map((cell, index) => cell ? <div role="gridcell" className={`journal-calendar-day${cell.performance ? cell.performance.pnl >= 0 ? " is-positive" : " is-negative" : ""}`} aria-label={`${monthName} ${cell.day}${cell.performance ? `, ${cell.performance.trades} trades, ${money(cell.performance.pnl)}` : ", no closed trades"}`} key={cell.key}><span>{cell.day}</span>{cell.performance ? <><strong>{money(cell.performance.pnl)}</strong><small>{cell.performance.trades} {cell.performance.trades === 1 ? "trade" : "trades"}</small></> : null}</div> : <span className="journal-calendar-day is-empty" aria-hidden="true" key={`empty-${index}`} />)}</div></article>;
-}
-
 function StrategyTable({ rows }: { rows: ReturnType<typeof buildJournalAnalytics>["strategies"] }) {
-  return <article className="journal-chart journal-strategy-card"><h2>Performance by strategy</h2><p>Compare the setups you actually recorded.</p><div className="journal-strategy-wrap"><table className="journal-strategy-table"><thead><tr><th>Strategy</th><th>Trades</th><th>Win rate</th><th>Average</th><th>Profit factor</th><th>Net P/L</th></tr></thead><tbody>{rows.map((row) => <tr key={row.strategy}><td><strong>{row.strategy}</strong></td><td>{row.trades}</td><td>{Math.round(row.winRate * 100)}%</td><td>{money(row.average)}</td><td>{row.profitFactor?.toFixed(2) ?? "—"}</td><td className={row.net >= 0 ? "journal-positive" : "journal-negative"}>{money(row.net)}</td></tr>)}</tbody></table></div></article>;
+  return <article className="journal-chart journal-strategy-card"><h2>Performance by strategy</h2><p>Compare the setups you actually recorded.</p><div className="journal-strategy-wrap"><table className="journal-strategy-table"><thead><tr><th>Strategy</th><th>Trades</th><th>Win rate</th><th>Average</th><th>Profit factor</th><th>Net P/L</th></tr></thead><tbody>{rows.map((row) => <tr key={row.strategy}><td data-label="Strategy"><strong>{row.strategy}</strong></td><td data-label="Trades">{row.trades}</td><td data-label="Win rate">{Math.round(row.winRate * 100)}%</td><td data-label="Average">{money(row.average)}</td><td data-label="Profit factor">{row.profitFactor?.toFixed(2) ?? "—"}</td><td data-label="Net P/L" className={row.net >= 0 ? "journal-positive" : "journal-negative"}>{money(row.net)}</td></tr>)}</tbody></table></div></article>;
 }
 
 function ReportObservations({ analytics }: { analytics: ReturnType<typeof buildJournalAnalytics> }) {
@@ -72,8 +54,8 @@ function ReportObservations({ analytics }: { analytics: ReturnType<typeof buildJ
   return <section className="journal-report-block" aria-labelledby="journal-report-title"><header><p>StayFlat report</p><h2 id="journal-report-title">Behavior observations from your journal</h2><span>Measured from the trades and context you recorded.</span></header><div className="journal-observations">{observations.map(([label, figure, copy]) => <article key={label}><strong>{figure}</strong><div><h3>{label}</h3><p>{copy}</p></div></article>)}</div></section>;
 }
 
-export function Analytics({ trades, period, onPeriodChange }: { trades: JournalTrade[]; period: AnalyticsPeriod; onPeriodChange: (period: AnalyticsPeriod) => void }) {
+export function Analytics({ trades, period, onPeriodChange, showCalendar = true, showPeriodControls = true }: { trades: JournalTrade[]; period: AnalyticsPeriod; onPeriodChange: (period: AnalyticsPeriod) => void; showCalendar?: boolean; showPeriodControls?: boolean }) {
   const analytics = useMemo(() => buildJournalAnalytics(trades, period), [trades, period]);
   const { closed, summary } = analytics;
-  return <section aria-label="Journal analytics"><div className="journal-filters" aria-label="Analytics period">{PERIODS.map(([value, label]) => <button type="button" key={value} aria-pressed={period === value} onClick={() => onPeriodChange(value)}>{label}</button>)}</div>{closed.length === 0 ? <div className="journal-chart journal-chart-full"><div className="journal-empty"><p>No closed trades in this period. Add an exit price and exit time to a trade, or choose a wider range.</p></div></div> : <><div className="journal-summary journal-analytics-summary"><Stat label="Net P/L" value={money(summary.net)} tone={summary.net >= 0 ? "positive" : "negative"} /><Stat label="Win rate" value={`${Math.round((summary.winRate ?? 0) * 100)}%`} /><Stat label="Expectancy" value={money(summary.expectancy)} tone={(summary.expectancy ?? 0) >= 0 ? "positive" : "negative"} /><Stat label="Profit factor" value={summary.profitFactor?.toFixed(2) ?? "—"} /><Stat label="Avg win" value={money(summary.averageWin)} tone="positive" /><Stat label="Avg loss" value={money(summary.averageLoss)} tone="negative" /><Stat label="Max drawdown" value={money(-summary.maxDrawdown)} tone="negative" /><Stat label="Closed trades" value={String(summary.closedTrades)} /></div><div className="journal-analytics-stack"><EquityChart points={analytics.equity} /><Calendar daily={analytics.daily} /><StrategyTable rows={analytics.strategies} /></div><div className="journal-charts"><article className="journal-chart"><h2>P/L by trading state</h2><p>See how your state of mind relates to your result.</p><Bars items={analytics.byEmotion} /></article><article className="journal-chart"><h2>P/L by market</h2><p>See where gains and losses are concentrated.</p><Bars items={analytics.byMarket.slice(0, 7)} /></article></div><ReportObservations analytics={analytics} /></>}</section>;
+  return <section aria-label="Journal analytics">{showPeriodControls ? <div className="journal-filters" aria-label="Analytics period">{PERIODS.map(([value, label]) => <button type="button" key={value} aria-pressed={period === value} onClick={() => onPeriodChange(value)}>{label}</button>)}</div> : null}{closed.length === 0 ? <div className="journal-chart journal-chart-full"><div className="journal-empty"><p>No closed trades in this period. Add an exit price and exit time to a trade, or choose a wider range.</p></div></div> : <><div className="journal-summary journal-analytics-summary"><Stat label="Net P/L" value={money(summary.net)} tone={summary.net >= 0 ? "positive" : "negative"} /><Stat label="Win rate" value={`${Math.round((summary.winRate ?? 0) * 100)}%`} /><Stat label="Expectancy" value={money(summary.expectancy)} tone={(summary.expectancy ?? 0) >= 0 ? "positive" : "negative"} /><Stat label="Profit factor" value={summary.profitFactor?.toFixed(2) ?? "—"} /><Stat label="Avg win" value={money(summary.averageWin)} tone="positive" /><Stat label="Avg loss" value={money(summary.averageLoss)} tone="negative" /><Stat label="Max drawdown" value={money(-summary.maxDrawdown)} tone="negative" /><Stat label="Closed trades" value={String(summary.closedTrades)} /></div><div className="journal-analytics-stack"><EquityChart points={analytics.equity} />{showCalendar ? <PnlCalendar daily={analytics.daily} /> : null}<StrategyTable rows={analytics.strategies} /></div><div className="journal-charts"><article className="journal-chart"><h2>P/L by trading state</h2><p>See how your state of mind relates to your result.</p><Bars items={analytics.byEmotion} /></article><article className="journal-chart"><h2>P/L by market</h2><p>See where gains and losses are concentrated.</p><Bars items={analytics.byMarket.slice(0, 7)} /></article></div><ReportObservations analytics={analytics} /></>}</section>;
 }

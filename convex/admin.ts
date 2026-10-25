@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import type { ReferenceTrade } from "../src/lib/journal/reference-state";
 
 const ADMIN_CLERK_USER_ID = "user_3IhGmEcnUmdKgawvvRzBLtRoH1A";
 
@@ -76,7 +77,7 @@ export const overview = query({
   handler: async (ctx) => {
     await requireAdmin(ctx);
 
-    const [payments, wallets, onboarding, journals, exchangeRequests, legacyTrades, downloads, accessBlocks] =
+    const [payments, wallets, onboarding, journals, exchangeRequests, legacyTrades, downloads, accessBlocks, journalSettings, journalEntries] =
       await Promise.all([
         ctx.db.query("payments").collect(),
         ctx.db.query("reportWallets").collect(),
@@ -86,8 +87,17 @@ export const overview = query({
         ctx.db.query("trades").collect(),
         ctx.db.query("reportDownloads").collect(),
         ctx.db.query("accessBlocks").collect(),
+        ctx.db.query("journalSettings").collect(),
+        ctx.db.query("journalEntries").collect(),
       ]);
 
+    const upgradedOwners = new Set(journalSettings.map((j) => j.ownerId));
+    const upgradedJournals = journalSettings.map((j) => {
+      const settings = JSON.parse(j.settings);
+      const trades = journalEntries.filter((e) => e.ownerId === j.ownerId).map((e) => JSON.parse(e.trade) as ReferenceTrade).filter((t) => !t.syncReview);
+      return { id: j._id, ownerId: j.ownerId, startingCapital: settings.tradingCapital ?? 0, tradeCount: trades.length, updatedAt: j.updatedAt,
+        latestTrades: trades.toSorted((a,b) => b.entryTime-a.entryTime).slice(0,5).map((t) => ({ id:t.id, entryTime:t.entryTime, coin:t.coin, strategy:t.strategy, dir:t.dir, exitTime:t.exitTime, fees:t.fees, emotion:t.emo })) };
+    });
     return {
       generatedAt: Date.now(),
       payments: payments.map((payment) => ({
@@ -125,7 +135,7 @@ export const overview = query({
         updatedAt: record.updatedAt,
         answers: record.answers,
       })),
-      journals: journals.map((journal) => ({
+      journals: [...upgradedJournals, ...journals.filter((j) => !upgradedOwners.has(j.ownerId)).map((journal) => ({
         id: journal._id,
         ownerId: journal.ownerId,
         startingCapital: journal.startingCapital,
@@ -144,7 +154,7 @@ export const overview = query({
             fees,
             emotion: emo,
           })),
-      })),
+      }))],
       exchangeRequests: exchangeRequests.map((request) => ({
         id: request._id,
         ownerId: request.ownerId,

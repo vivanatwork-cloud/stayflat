@@ -6,6 +6,12 @@ import { multiVenueMetricsValidator, reportMetricsValidator } from "./reportVali
 export default defineSchema({
   wealthSettings: defineTable({ownerId:v.string(), settings:v.string(), revision:v.number(), updatedAt:v.number()}).index("by_owner",["ownerId"]),
   wealthRecords: defineTable({ownerId:v.string(), kind:v.string(), recordId:v.string(), part:v.number(), payload:v.string()}).index("by_owner",["ownerId"]).index("by_owner_kind",["ownerId","kind"]),
+  journalSettings: defineTable({
+    ownerId: v.string(), settings: v.string(), revision: v.number(), updatedAt: v.number(),
+  }).index("by_owner", ["ownerId"]),
+  journalEntries: defineTable({
+    ownerId: v.string(), tradeId: v.string(), trade: v.string(),
+  }).index("by_owner", ["ownerId"]),
   trades: defineTable({
     wallet: v.string(),
     market: v.string(),
